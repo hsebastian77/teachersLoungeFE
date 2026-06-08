@@ -35,14 +35,14 @@ const InviteUserView = ({ route }) => {
       
       if (searchQuery.trim()) {
         fetchedUsers = await privateSpaceManager.searchInvitableUsers(
-          "http://192.168.1.154:4001", // Use your API URL
+          "http://192.168.1.66:4001", // Use your API URL
           token,
           spaceId,
           searchQuery.trim()
         );
       } else {
         fetchedUsers = await privateSpaceManager.getInvitableUsers(
-          "http://192.168.1.154:4001", // Use your API URL
+          "http://192.168.1.66:4001", // Use your API URL
           token,
           spaceId
         );
@@ -85,7 +85,7 @@ const InviteUserView = ({ route }) => {
       setInviting({ ...inviting, [userEmail]: true });
       const token = await SecureStore.getItemAsync("token");
       await privateSpaceManager.inviteUser(
-        "http://192.168.1.154:4001", // Use your API URL
+        "http://192.168.1.66:4001", // Use your API URL
         token,
         spaceId,
         userEmail

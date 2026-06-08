@@ -13,4 +13,4 @@ config.resolver.nodeModulesPaths = [
 // Handle platform-specific extensions
 config.resolver.platforms = ['ios', 'android', 'native', 'web'];
 
-module.exports = config; 
+module.exports = config;

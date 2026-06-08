@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
 import { useRoute } from "@react-navigation/native";
 import { TextInput } from "react-native-paper";
@@ -6,24 +6,29 @@ import SafeArea from "../../SafeArea";
 import ProfileNavigator from "./ProfileNavigator";
 import ChangeInfoCommand from "../../../Controller/ChangeInfoCommand";
 
-textContent = "";
 function EditView({ navigation }) {
-  var route = useRoute();
-  var a = new ChangeInfoCommand(route.params.User);
-  var b = "";
-  if (ProfileNavigator.lastClick == "Edit Name") {
+  const route = useRoute();
+  const [textContent, setTextContent] = useState("");
+
+  const a = new ChangeInfoCommand(route.params.User);
+
+  let b = "";
+  if (ProfileNavigator.lastClick === "Edit Name") {
     b = route.params.User.userName;
-  } else if (ProfileNavigator.lastClick == "Edit Username") {
+  } else if (ProfileNavigator.lastClick === "Edit Username") {
     b = route.params.User.userUserName;
-  } else if (ProfileNavigator.lastClick == "Edit School") {
+  } else if (ProfileNavigator.lastClick === "Edit School") {
     b = route.params.User.school;
   }
+
   return (
     <SafeArea>
       <TextInput
         placeholder={b}
-        onChangeText={(value) => (textContent = value)}
+        value={textContent}
+        onChangeText={setTextContent}
       />
+
       <View
         style={{
           paddingTop: 10,
