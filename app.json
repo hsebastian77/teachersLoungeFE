@@ -9,7 +9,8 @@
     "scheme": "tlapp",
     "splash": {
       "image": "./assets/logo.png",
-      "resizeMode": "contain"
+      "resizeMode": "contain",
+      "backgroundColor": "#411C00"
     },
     "assetBundlePatterns": [
       "**/*"
