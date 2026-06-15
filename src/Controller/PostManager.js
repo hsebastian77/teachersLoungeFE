@@ -15,7 +15,6 @@ import Post from "../Model/Posts/Post.js";
 import Comment from "../Model/Posts/Comment.js";
 import { Alert } from "react-native";
 import * as SecureStore from "expo-secure-store";
-import { constrainedMemory } from "process";
 
 // Fetches all posts that have been approved, used for PostListingsView
 async function getApprovedPosts(userEmail) {
