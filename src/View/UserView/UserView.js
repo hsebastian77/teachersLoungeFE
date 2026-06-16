@@ -1,38 +1,35 @@
 import React from "react";
-import { StyleSheet, View } from "react-native";
 import { useRoute } from "@react-navigation/native";
-import Entypo from '@expo/vector-icons/Entypo';
+import Entypo from "@expo/vector-icons/Entypo";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+
 import HomeNavigator from "./HomeView/HomeNavigator.js";
-import CreatePostView from "./HomeView/CreatePostView.js";
-import ProfileView from "./ProfileView/ProfileView.js";
-import FriendsView from "./FriendsView/FriendsView.js";
 import MessagesNavigator from "./MessageView/MessagesNavigator.js";
 import ProfileNavigator from "./ProfileView/ProfileNavigator.js";
 import FriendsNavigator from "./FriendsView/FriendsNavigator.js";
 import PrivateSpacesNavigator from "./PrivateSpacesView/PrivateSpacesNavigator.js";
 
 const Tab = createBottomTabNavigator();
+
 function TabNavigator() {
   const route = useRoute();
+
   return (
     <Tab.Navigator
       initialRouteName="Home"
       screenOptions={{
-        activeBackgroundColor: "#6382E8",
-        activeTintColor: "#FFFFFF",
-        inactiveBackgroundColor: "#6382E8",
-        inactiveTintColor: "#FFFFFF",
-        headerStyle: {
-          backgroundColor: "#6382E8",
-        },
+        headerStyle: { backgroundColor: "#6382E8" },
         headerTintColor: "#6382E8",
+        tabBarActiveBackgroundColor: "#6382E8",
+        tabBarInactiveBackgroundColor: "#6382E8",
+        tabBarActiveTintColor: "#FFFFFF",
+        tabBarInactiveTintColor: "#FFFFFF",
       }}
     >
       <Tab.Screen
         name="Home"
-        initialParams={route.params}
         component={HomeNavigator}
+        initialParams={route?.params}
         options={{
           tabBarIcon: ({ size, color }) => (
             <Entypo name="home" size={size} color={color} />
@@ -40,10 +37,11 @@ function TabNavigator() {
           headerShown: false,
         }}
       />
+
       <Tab.Screen
         name="Friends"
-        initialParams={route.params}
         component={FriendsNavigator}
+        initialParams={route?.params}
         options={{
           tabBarIcon: ({ size, color }) => (
             <Entypo name="magnifying-glass" size={size} color={color} />
@@ -51,10 +49,11 @@ function TabNavigator() {
           headerShown: false,
         }}
       />
+
       <Tab.Screen
         name="Spaces"
-        initialParams={route.params}
         component={PrivateSpacesNavigator}
+        initialParams={route?.params}
         options={{
           tabBarIcon: ({ size, color }) => (
             <Entypo name="lock" size={size} color={color} />
@@ -62,10 +61,11 @@ function TabNavigator() {
           headerShown: false,
         }}
       />
+
       <Tab.Screen
         name="Messages"
-        initialParams={route.params}
         component={MessagesNavigator}
+        initialParams={route?.params}
         options={{
           tabBarIcon: ({ size, color }) => (
             <Entypo name="message" size={size} color={color} />
@@ -73,10 +73,11 @@ function TabNavigator() {
           headerShown: false,
         }}
       />
+
       <Tab.Screen
         name="Profile"
-        initialParams={route.params}
         component={ProfileNavigator}
+        initialParams={route?.params}
         options={{
           tabBarIcon: ({ size, color }) => (
             <Entypo name="user" size={size} color={color} />
@@ -85,12 +86,9 @@ function TabNavigator() {
         }}
       />
     </Tab.Navigator>
-
   );
 }
 
-function UserView({ route }) {
+export default function UserView() {
   return <TabNavigator />;
 }
-
-export default UserView;

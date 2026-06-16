@@ -18,7 +18,8 @@ import App_StyleSheet from "../../../Styles/App_StyleSheet";
 function ProfileView({ navigation }) {
   const isFocused = useIsFocused();
   const route = useRoute();
-  const [image, setImage] = useState({ uri: route.params.User.image } || require('../../../../assets/default-profile.png'));
+  const { User } = route.params;
+  const [image, setImage] = useState({ uri: User.image } || require('../../../../assets/default-profile.png'));
   const [posts, setPosts] = useState([]);
 
   let kebabIcon = require("../../../../assets/settings.png");
@@ -31,7 +32,7 @@ function ProfileView({ navigation }) {
   }, [isFocused]);
 
   const loadPosts = async () => {
-    const data = await getApprovedPostsByUser(route.params.User.userUserName);
+    const data = await getApprovedPostsByUser(User.userUserName);
     const sortedPosts = data.sort((a, b) => b.id - a.id);
     console.log(sortedPosts)
     setPosts(sortedPosts);
@@ -63,7 +64,7 @@ function ProfileView({ navigation }) {
       <View style={App_StyleSheet.content}>
         <View style={styles.profileSection}>
           <Avatar.Image source={image} size={90} />
-          <Text style={styles.username}>{route.params.User.userUserName}</Text>
+          <Text style={styles.username}>{User.userUserName}</Text>
         </View>
 
         {posts && (
@@ -83,7 +84,11 @@ function ProfileView({ navigation }) {
             data={posts}
             extraData={posts}
             renderItem={({ item }) => (
-              <PostComponentView navigation={navigation} post={item} />
+              <PostComponentView
+                navigation={navigation}
+                post={item}
+                User={User}
+              />
             )}
             initialNumToRender={20}
             maxToRenderPerBatch={20}

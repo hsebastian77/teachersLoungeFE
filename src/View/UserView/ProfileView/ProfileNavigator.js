@@ -1,26 +1,23 @@
 import React from "react";
-import { StyleSheet } from "react-native";
-import { useRoute } from "@react-navigation/native";
-import { createStackNavigator } from "@react-navigation/stack";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+
 import ProfileView from "./ProfileView";
 import EditProfileView from "./EditProfileView";
 import EditView from "./EditView";
-import SettingsView from "./SettingsView"
+import SettingsView from "./SettingsView";
+
 import PostListingsView from "../HomeView/PostListingsView";
 import PostModeratorView from "../ProfileView/PostModeratorView";
 import UserModeratorView from "../ProfileView/UserModeratorView";
-const HomeStack = createStackNavigator();
-ProfileNavigator.lastClick = null;
 
-function ProfileNavigator({ navigation }) {
-  const route = useRoute();
+const Stack = createNativeStackNavigator();
+
+function ProfileNavigator({ route }) {
+  const params = route?.params;
+
   return (
-    <HomeStack.Navigator
+    <Stack.Navigator
       screenOptions={{
-        activeBackgroundColor: "blue",
-        activeTintColor: "white",
-        inactiveBackgroundColor: "gray",
-        inactiveTintColor: "black",
         headerTitleAlign: "left",
         headerStyle: {
           backgroundColor: "#6382E8",
@@ -32,66 +29,57 @@ function ProfileNavigator({ navigation }) {
           fontWeight: "bold",
         },
         headerTintColor: "#ffffff",
-        headerLeftContainerStyle: { paddingLeft: 10 }
       }}
     >
-      <HomeStack.Screen
+      <Stack.Screen
         name="Profile"
         component={ProfileView}
-        initialParams={route.params}
-        options={{
-          headerLeft: () => null,
-        }}
+        initialParams={params}
+        options={{ headerLeft: () => null }}
       />
-      <HomeStack.Screen
+
+      <Stack.Screen
         name="Edit Profile"
         component={EditProfileView}
-        initialParams={route.params}
+        initialParams={params}
         options={{ headerBackTitleVisible: false }}
       />
-      <HomeStack.Screen
+
+      <Stack.Screen
+        name="Edit"
+        component={EditView}
+        initialParams={params}
+        options={{ headerBackTitleVisible: false }}
+      />
+
+      <Stack.Screen
         name="Settings"
         component={SettingsView}
-        initialParams={route.params}
+        initialParams={params}
         options={{ headerBackTitleVisible: false }}
       />
-      <HomeStack.Screen
-        name="Edit Name"
-        component={EditView}
-        initialParams={route.params}
-        options={{ headerBackTitleVisible: false }}
-      />
-      <HomeStack.Screen
-        name="Edit Username"
-        component={EditView}
-        initialParams={route.params}
-        options={{ headerBackTitleVisible: false }}
-      />
-      <HomeStack.Screen
-        name="Edit School"
-        component={EditView}
-        initialParams={route.params}
-        options={{ headerBackTitleVisible: false }}
-      />
-      <HomeStack.Screen
+
+      <Stack.Screen
         name="Home"
         component={PostListingsView}
-        initialParams={route.params}
+        initialParams={params}
         options={{ headerBackTitleVisible: false }}
       />
-      <HomeStack.Screen
+
+      <Stack.Screen
         name="User Moderation"
         component={UserModeratorView}
-        initialParams={route.params}
+        initialParams={params}
         options={{ headerBackTitleVisible: false }}
       />
-      <HomeStack.Screen
+
+      <Stack.Screen
         name="Post Moderation"
         component={PostModeratorView}
-        initialParams={route.params}
+        initialParams={params}
         options={{ headerBackTitleVisible: false }}
       />
-    </HomeStack.Navigator>
+    </Stack.Navigator>
   );
 }
 

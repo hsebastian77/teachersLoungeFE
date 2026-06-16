@@ -1,7 +1,8 @@
 import React from "react";
-import { StyleSheet, TouchableOpacity, Image, Text } from "react-native";
-import { useRoute } from "@react-navigation/native";
-import { createStackNavigator } from "@react-navigation/stack";
+import { TouchableOpacity, Image } from "react-native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { useNavigation, useRoute } from "@react-navigation/native";
+
 import PostListingsView from "./PostListingsView";
 import ProfileView from "../ProfileView/ProfileView";
 import CommunitiesView from "./CommunitiesView";
@@ -12,20 +13,18 @@ import CreatePostView from "./CreatePostView";
 import PostView from "./PostView";
 import App_StyleSheet from "../../../Styles/App_StyleSheet";
 
-const HomeStack = createStackNavigator();
-let communitiesIcon = require("../../../../assets/communities.png");
-let searchIcon = require("../../../../assets/search.png");
+const Stack = createNativeStackNavigator();
 
-function HomeNavigator({ navigation }) {
-  const route = useRoute();
+const communitiesIcon = require("../../../../assets/communities.png");
+const searchIcon = require("../../../../assets/search.png");
+
+function HomeNavigator({ route }) {
+  const navigation = useNavigation();
+  const params = route?.params;
+
   return (
-    <HomeStack.Navigator
+    <Stack.Navigator
       screenOptions={{
-        activeBackgroundColor: "blue",
-        activeTintColor: "white",
-        inactiveBackgroundColor: "gray",
-        inactiveTintColor: "black",
-        headerTitleAlign: "left",
         headerStyle: {
           backgroundColor: "#6382E8",
           shadowOpacity: 0,
@@ -36,18 +35,17 @@ function HomeNavigator({ navigation }) {
           fontWeight: "bold",
         },
         headerTintColor: "#ffffff",
-        headerLeftContainerStyle: { paddingLeft: 10 }
       }}
     >
-      <HomeStack.Screen
+      <Stack.Screen
         name="Teacher's Lounge"
         component={PostListingsView}
-        initialParams={route.params}
+        initialParams={params}
         options={{
           headerLeft: () => null,
           headerRight: () => (
             <TouchableOpacity
-              onPress={() => navigation.navigate('Communities')}
+              onPress={() => navigation.navigate("Communities")}
               style={App_StyleSheet.header_button}
             >
               <Image source={communitiesIcon} style={App_StyleSheet.header_icon} />
@@ -55,80 +53,16 @@ function HomeNavigator({ navigation }) {
           ),
         }}
       />
-      <HomeStack.Screen
-        name="Profile"
-        component={ProfileView}
-        initialParams={route.params}
-        options={{
-          headerBackTitleVisible: false,
-        }}
-      />
-      <HomeStack.Screen
-        name="Communities"
-        component={CommunitiesView}
-        initialParams={route.params}
-        options={{
-          headerBackTitleVisible: false,
-          headerRight: () => (
-            <TouchableOpacity
-              style={App_StyleSheet.header_button}
-              onPress={() => navigation.navigate('Find Communities')}
-            >
-              <Image source={searchIcon} style={App_StyleSheet.header_icon} />
-            </TouchableOpacity>
-          ),
-        }}
-      />
-      <HomeStack.Screen
-        name="Community"
-        component={CommunityView}
-        initialParams={route.params}
-        options={{
-          headerBackTitleVisible: false,
-        }}
-      />
-      <HomeStack.Screen
-        name="Create Community"
-        component={CreateCommunityView}
-        initialParams={route.params}
-        options={{
-          headerBackTitleVisible: false,
-        }}
-      />
-      <HomeStack.Screen
-        name="Find Communities"
-        component={SearchCommunityView}
-        initialParams={route.params}
-        options={{
-          headerBackTitleVisible: false,
-        }}
-      />
-      <HomeStack.Screen
-        name="Create Post"
-        component={CreatePostView}
-        initialParams={route.params}
-        options={{ headerBackTitleVisible: false }}
-      />
-      <HomeStack.Screen
-        name="View Post"
-        component={PostView}
-        initialParams={route.params}
-        options={{ headerBackTitleVisible: false }}
-      />
-    </HomeStack.Navigator>
+
+      <Stack.Screen name="Profile" component={ProfileView} />
+      <Stack.Screen name="Communities" component={CommunitiesView} />
+      <Stack.Screen name="Community" component={CommunityView} />
+      <Stack.Screen name="Create Community" component={CreateCommunityView} />
+      <Stack.Screen name="Find Communities" component={SearchCommunityView} />
+      <Stack.Screen name="Create Post" component={CreatePostView} />
+      <Stack.Screen name="View Post" component={PostView} />
+    </Stack.Navigator>
   );
 }
-
-const styles = StyleSheet.create({
-  iconContainer: {
-    marginRight: 15,
-    padding: 5,
-  },
-  icon: {
-    width: 36,
-    height: 36,
-    resizeMode: 'contain',
-  },
-});
 
 export default HomeNavigator;

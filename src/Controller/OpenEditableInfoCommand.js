@@ -8,7 +8,7 @@ class OpenEditableInfoCommand {
   }
 
   OpenEditableInfo({ navigation }) {
-    navigation.navigate(ProfileNavigator.lastClick);
+    navigation.navigate("Edit Field", { mode });
   }
 }
 

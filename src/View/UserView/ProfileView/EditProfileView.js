@@ -113,8 +113,10 @@ function EditProfileView({ navigation }) {
         >
           <TouchableOpacity
             onPress={() => {
-              (ProfileNavigator.lastClick = "Edit Name"),
-                openEdit.OpenEditableInfo({ navigation });
+              openEdit.OpenEditableInfo({
+                navigation,
+                mode: "name",
+              });
             }}
           >
             <Text style={styles.editableInfoStyle}>
@@ -135,9 +137,11 @@ function EditProfileView({ navigation }) {
           }}
         >
           <TouchableOpacity
-            onPress={() => {
-              (ProfileNavigator.lastClick = "Edit Username"),
-                openEdit.OpenEditableInfo({ navigation });
+           onPress={() => {
+              openEdit.OpenEditableInfo({
+                navigation,
+                mode: "username",
+              });
             }}
           >
             <Text style={styles.editableInfoStyle}>
@@ -156,8 +160,10 @@ function EditProfileView({ navigation }) {
         >
           <TouchableOpacity
             onPress={() => {
-              (ProfileNavigator.lastClick = "Edit School"),
-                openEdit.OpenEditableInfo({ navigation });
+              openEdit.OpenEditableInfo({
+                navigation,
+                mode: "school",
+              });
             }}
           >
           </TouchableOpacity>

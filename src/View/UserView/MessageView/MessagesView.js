@@ -42,8 +42,10 @@ function MessagesView({ navigation }) {
             renderItem={({ item }) => (
               <TouchableOpacity
                 onPress={() => {
-                  (MessagesNavigator.lastClick = item),
-                    navigation.navigate("Conversation", {conversationId: item.id, username: item.title});
+                  navigation.navigate("Conversation", {
+                    conversationId: item.id,
+                    username: item.title
+                  });
                 }}
               >
                 <View style={App_StyleSheet.list_item}>

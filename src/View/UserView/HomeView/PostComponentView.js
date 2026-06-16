@@ -14,7 +14,7 @@ import { unlikePost } from "../../../Controller/UnlikePostCommand";
 import { getPostLikes } from "../../../Controller/GetPostLikesCommand";
 import { checkLikePost } from "../../../Controller/CheckLikedPostCommand";
 
-function PostComponentView({ navigation, post }) {
+function PostComponentView({ navigation, post, User }) {
   const route = useRoute();
   const [isLiked, setIsLiked] = useState(false);
   const [likes, setLikes] = useState(Number(post.likes));
@@ -80,7 +80,7 @@ function PostComponentView({ navigation, post }) {
       onPress={() => {
         navigation.navigate("View Post", {
           post,
-          User: route.params.User
+          User
         });
       }}
     >

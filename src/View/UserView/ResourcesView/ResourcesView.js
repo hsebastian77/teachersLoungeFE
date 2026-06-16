@@ -8,12 +8,12 @@ import {
   Image
 } from "react-native";
 import { Link, useRoute } from "@react-navigation/native";
-import { createStackNavigator } from "@react-navigation/stack";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import SafeArea from "../../SafeArea";
 import OpenEducationalResourcesCommand from "../../../Controller/OpenEducationalResourcesCommand";
 import App_StyleSheet from "../../../Styles/App_StyleSheet";
 
-const HomeStack = createStackNavigator();
+const HomeStack = createNativeStackNavigator();
 
 function ResourcesView({ navigation }) {
   const route = useRoute();

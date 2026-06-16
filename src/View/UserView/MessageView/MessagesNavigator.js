@@ -1,79 +1,81 @@
 import React from "react";
-import { StyleSheet, TouchableOpacity, Image } from "react-native";
+import { TouchableOpacity, Image } from "react-native";
 import { useRoute } from "@react-navigation/native";
-import { createStackNavigator } from "@react-navigation/stack";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+
 import ConversationView from "./ConversationView";
 import CreateNewChatView from "./CreateNewChatView";
 import MessagesView from "./MessagesView";
 import ConversationInfoView from "./ConversationInfoView";
+
 import App_StyleSheet from "../../../Styles/App_StyleSheet";
 
-const HomeStack = createStackNavigator();
-MessagesNavigator.lastClick = null;
-let newChatIcon = require("../../../../assets/newMessage.png");
+const Stack = createNativeStackNavigator();
+
+const newChatIcon = require("../../../../assets/newMessage.png");
+
+// 🔹 Reusable header button
+const NewChatButton = ({ navigation }) => (
+  <TouchableOpacity
+    onPress={() => navigation.navigate("New Chat")}
+    style={App_StyleSheet.header_button}
+  >
+    <Image source={newChatIcon} style={App_StyleSheet.header_icon} />
+  </TouchableOpacity>
+);
 
 function MessagesNavigator({ navigation }) {
   const route = useRoute();
+
+  const defaultOptions = {
+    headerTitleAlign: "left",
+    headerStyle: {
+      backgroundColor: "#6382E8",
+      shadowOpacity: 0,
+      borderBottomWidth: 0,
+    },
+    headerTitleStyle: {
+      fontSize: 32,
+      fontWeight: "bold",
+    },
+    headerTintColor: "#ffffff",
+    headerLeftContainerStyle: { paddingLeft: 10 },
+  };
+
   return (
-    <HomeStack.Navigator
-      screenOptions={{
-        activeBackgroundColor: "blue",
-        activeTintColor: "white",
-        inactiveBackgroundColor: "gray",
-        inactiveTintColor: "black",
-        headerTitleAlign: "left",
-        headerStyle: {
-          backgroundColor: "#6382E8",
-          shadowOpacity: 0,
-          borderBottomWidth: 0,
-        },
-        headerTitleStyle: {
-          fontSize: 32,
-          fontWeight: "bold",
-        },
-        headerTintColor: "#ffffff",
-        headerLeftContainerStyle: { paddingLeft: 10 }
-      }}
-    >
-      <HomeStack.Screen
+    <Stack.Navigator screenOptions={defaultOptions}>
+      <Stack.Screen
         name="Messages"
         component={MessagesView}
         initialParams={route.params}
         options={{
           headerLeft: () => null,
-          headerRight: () => (
-            <TouchableOpacity
-              style={App_StyleSheet.header_button}
-              onPress={() => navigation.navigate('New Chat')}
-            >
-              <Image source={newChatIcon} style={App_StyleSheet.header_icon} />
-            </TouchableOpacity>
-          ),
+          headerRight: () => <NewChatButton navigation={navigation} />,
         }}
       />
-      <HomeStack.Screen
+
+      <Stack.Screen
         name="Conversation"
         component={ConversationView}
         initialParams={route.params}
-        options={{ headerBackTitleVisible: false,
-        }}
+        options={{ headerBackTitleVisible: false }}
       />
-      <HomeStack.Screen
+
+      <Stack.Screen
         name="New Chat"
         component={CreateNewChatView}
         initialParams={route.params}
         options={{ headerBackTitleVisible: false }}
       />
-      <HomeStack.Screen
+
+      <Stack.Screen
         name="Conversation Info"
         component={ConversationInfoView}
         initialParams={route.params}
         options={{ headerBackTitleVisible: false }}
       />
-    </HomeStack.Navigator>
+    </Stack.Navigator>
   );
 }
-
-const styles = StyleSheet.create({});
 
 export default MessagesNavigator;
