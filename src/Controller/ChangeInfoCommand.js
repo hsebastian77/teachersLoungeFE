@@ -10,7 +10,7 @@ class ChangeInfoCommand {
     this.user = user;
   }
 
-  async ChangeInfo({ navigation }, textContent) {
+  async ChangeInfo({ navigation }, textContent, mode) {
     if (!content || content.trim() === "") {
       Alert.alert("Error", "Field cannot be empty");
       return;

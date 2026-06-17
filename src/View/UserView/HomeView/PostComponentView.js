@@ -24,10 +24,10 @@ function PostComponentView({ navigation, post, User }) {
   let commentImg = require("../../../../assets/comment.png");
 
   useEffect(() => {
-    if (post?.id) {
+    if (post?.id && User?.userUserName) {
       async function fetchLikeData() {
         try {
-          const liked = await checkLikePost(post, route.params.User.userUserName);
+          const liked = await checkLikePost(post, User.userUserName);
           setIsLiked(liked);
         } catch (error) {
           console.error("Error fetching like data:", error);
@@ -35,7 +35,7 @@ function PostComponentView({ navigation, post, User }) {
       }
       fetchLikeData();
     }
-  }, [post]);
+  }, [post, User]);
 
   // Add focus effect to update likes when returning from PostView
   useFocusEffect(
@@ -53,14 +53,14 @@ function PostComponentView({ navigation, post, User }) {
   const handleLikeToggle = async () => {
     try {
       if (isLiked) {
-        const unlikeSuccess = await unlikePost(post, route.params.User.userUserName);
+        const unlikeSuccess = await unlikePost(post, User.userUserName);
         if (unlikeSuccess) {
           setIsLiked(false);
           setLikes((prevLikes) => prevLikes - 1);
           post.likes = Math.max(0, post.likes - 1);
         }
       } else {
-        const likeSuccess = await likePost(post, route.params.User.userUserName);
+        const likeSuccess = await likePost(post, User.userUserName);
         if (likeSuccess) {
           setIsLiked(true);
           setLikes((prevLikes) => prevLikes + 1);

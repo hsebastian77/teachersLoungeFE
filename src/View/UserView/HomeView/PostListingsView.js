@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 function PostListingsView({ navigation }) {
   const route = useRoute();
+  const User = route?.params?.User;
   const isFocused = useIsFocused();
 
   React.useEffect(() => {
@@ -58,6 +59,7 @@ function PostListingsView({ navigation }) {
               <PostComponentView
                 navigation={navigation}
                 post={item}
+                User={User}
               />
             )}
             initialNumToRender={20}

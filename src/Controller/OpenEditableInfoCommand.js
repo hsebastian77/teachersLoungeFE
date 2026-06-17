@@ -7,9 +7,12 @@ class OpenEditableInfoCommand {
     this.user = user;
   }
 
-  OpenEditableInfo({ navigation }) {
-    navigation.navigate("Edit Field", { mode });
-  }
+  OpenEditableInfo({ navigation }, mode) {
+  navigation.navigate("Edit Field", {
+    mode: mode,
+    User: this.user
+  });
+}
 }
 
 export default OpenEditableInfoCommand;
