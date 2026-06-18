@@ -38,7 +38,7 @@ async function getApprovedPosts(userEmail) {
       posts.unshift(
         new Post(
           data[count].postid,
-          data[count].email,
+          data[count].username || data[count].email,
           data[count].title,
           data[count].content,
           data[count].likescount,
@@ -75,7 +75,7 @@ async function getApprovedPostsByUser(username) {
       posts.unshift(
         new Post(
           data[count].postid,
-          data[count].email,
+          data[count].username || data[count].email,
           data[count].title,
           data[count].content,
           data[count].likescount,

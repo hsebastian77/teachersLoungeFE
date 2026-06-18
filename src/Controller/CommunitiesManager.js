@@ -172,7 +172,7 @@ async function getCommunityPosts(communityID, userEmail) {
       posts.unshift(
         new Post(
           data[count].postid,
-          data[count].email,
+          data[count].username || data[count].email,
           data[count].content,
           data[count].likescount,
           [],

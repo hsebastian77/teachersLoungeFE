@@ -19,6 +19,7 @@ import { getUserCommunities } from "../../../Controller/CommunitiesManager.js";
 function CreatePostView({ navigation }) {
   const route = useRoute();
   const isFocused = useIsFocused();
+  const User = route.params?.User;
   const [file, setFile] = useState("");
   const [postContent, setPostContent] = useState("");
   const [postTitle, setPostTitle] = useState("");
@@ -115,17 +116,21 @@ function CreatePostView({ navigation }) {
             <TouchableOpacity
               style={App_StyleSheet.medium_button}
               onPress={() => {
+                if (!User) {
+                  console.log("CreatePostView: User is missing");
+                  return;
+                } 
                 if (selectedCommunityId && selectedCommunityId !== "None") {
                   createCommunityPost(
                     { navigation },
                     postTitle,
                     postContent,
                     file,
-                    route.params.User,
+                    User,
                     selectedCommunityId
                   );
                 } else {
-                  CreatePost({ navigation }, postTitle, postContent, file, route.params.User);
+                  CreatePost({ navigation }, postTitle, postContent, file, User);
                 }
               }}
             >

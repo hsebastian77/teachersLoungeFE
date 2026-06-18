@@ -5,8 +5,8 @@ import { apiUrl, registerRoute, PASSWORD_ENCRYPTER } from "@env";
 
 
 //Called from the RegisterView, creates a new user
-async function register({ navigation }, fName, lName, email, password) {
-  if ((fName != "") && (lName != "") && (email != "") && (password != "")) {
+async function register({ navigation }, fName, lName, username, email, password){
+  if ((fName != "") && (lName != "") && (username != "") && (email != "") && (password != "")) {
     let urlRegister = apiUrl + registerRoute;
     console.log(urlRegister)
     const reqOptions = {
@@ -14,7 +14,7 @@ async function register({ navigation }, fName, lName, email, password) {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ firstName: fName, lastName: lName, username: email, password: password, role: "Approved" })
+      body: JSON.stringify({ firstName: fName, lastName: lName, username: username, email: email, password: password, role: "Approved" })
     };
     const response = await fetch(urlRegister, reqOptions);
     const data = await response.json();

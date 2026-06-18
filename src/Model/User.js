@@ -10,13 +10,15 @@ class User {
   userName = "";
   //The user's username/email- we tried to refactor the name of this to be clearer but it broke everything
   userUserName = "";
+  username = "";
   nickName = "";
   school = "";    
   userRole ="";
   image = "";
-  constructor(email,first,last,school,role,image) {
+  constructor(email, first, last, school, role, image, username) {
     this.userName = first + " " + last;
     this.userUserName = email;
+    this.username = username || this.userName;
     this.nickName = first;
     this.school = school;
     this.userRole = role;

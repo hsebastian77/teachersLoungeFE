@@ -36,7 +36,8 @@ async function login({ navigation }, email, password) {
             data.user.LastName,
             schoolInfo,
             data.user.Role,
-            data.user.ProfilePicLink
+            data.user.ProfilePicLink,
+            data.user.Username
           );
 
           try {
