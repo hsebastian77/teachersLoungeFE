@@ -19,7 +19,7 @@ function EditView({ route, navigation }) {
     placeholder = User.userName;
     buttonLabel = "Change Name";
   } else if (mode === "username") {
-    placeholder = User.userUserName;
+    placeholder = User.username || User.userUserName;
     buttonLabel = "Change Username";
   } else if (mode === "school") {
     placeholder = User.school;
@@ -39,8 +39,9 @@ function EditView({ route, navigation }) {
           style={styles.buttonStyle}
           onPress={() => {
             changeInfo.ChangeInfo(
-              { navigation, mode, User },
-              textContent
+              { navigation },
+              textContent,
+              mode
             );
           }}
         >
@@ -50,5 +51,20 @@ function EditView({ route, navigation }) {
     </SafeArea>
   );
 }
+
+const styles = StyleSheet.create({
+  buttonStyle: {
+    backgroundColor: "#6382E8",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  text: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+});
 
 export default EditView;

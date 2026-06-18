@@ -71,7 +71,7 @@ function PostListingsView({ navigation }) {
         {/* Floating Action Button for creating posts */}
         <TouchableOpacity
           style={styles.fab}
-          onPress={() => navigation.navigate('Create Post')}
+          onPress={() => navigation.navigate('Create Post', { User: User })}
         >
           <Ionicons name="create" size={24} color="white" />
         </TouchableOpacity>

@@ -11,7 +11,7 @@ class ChangeInfoCommand {
   }
 
   async ChangeInfo({ navigation }, textContent, mode) {
-    if (!content || content.trim() === "") {
+    if (!textContent || textContent.trim() === "") {
       Alert.alert("Error", "Field cannot be empty");
       return;
     }
@@ -25,7 +25,7 @@ class ChangeInfoCommand {
       // Determine what field to update based on the last clicked item
     if (mode === "name") {
         // Split the name into first and last name
-        const nameParts = content.trim().split(" ");
+        const nameParts = textContent.trim().split(" ");
         const firstName = nameParts[0] || "";
         const lastName = nameParts.slice(1).join(" ") || "";
         
@@ -33,17 +33,17 @@ class ChangeInfoCommand {
         updateData.lastname = lastName;
         
         // Update local user object
-      this.user.changeUserName(content);
+      this.user.changeUserName(textContent);
     } else if (mode === "username") {
-        updateData.newEmail = content.trim();
-        
-        // Update local user object
-      this.user.userUserName = content;
+      updateData.username = textContent.trim();
+
+      // Update local user object
+      this.user.username = textContent.trim();
     } else if (mode === "school") {
-        updateData.schoolName = content.trim();
+        updateData.schoolName = textContent.trim();
         
         // Update local user object
-      this.user.school = content;
+      this.user.school = textContent;
     }
 
       // Make API call to update user info
@@ -63,7 +63,7 @@ class ChangeInfoCommand {
         
         // If email was changed, update the stored token with new email
         if (mode === "username") {
-          await SecureStore.setItemAsync("username", content.trim());
+          await SecureStore.setItemAsync("username", textContent.trim());
         }
         
         navigation.reset({

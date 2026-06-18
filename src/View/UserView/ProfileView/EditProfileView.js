@@ -145,7 +145,7 @@ function EditProfileView({ navigation }) {
             }}
           >
             <Text style={styles.editableInfoStyle}>
-              {route.params.User.userUserName}
+              {route.params.User.username || route.params.User.userUserName}
             </Text>
           </TouchableOpacity>
         </View>
