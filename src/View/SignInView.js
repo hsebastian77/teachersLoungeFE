@@ -13,8 +13,6 @@ import { WebView } from 'react-native-webview';
 
 WebBrowser.maybeCompleteAuthSession();
 
-let email = "";
-let password = "";
 let logo = require("../../assets/logo.png");
 
 // Google OAuth configuration - Platform-specific Client IDs
@@ -32,19 +30,15 @@ const getGoogleRedirectUri = () => {
 
 const GOOGLE_REDIRECT_URI = getGoogleRedirectUri();
 
-// Display redirect URI information
-console.log('=== Google OAuth Configuration Information ===');
-console.log('Google Android Client ID:', GOOGLE_ANDROID_CLIENT_ID);
-console.log('Google iOS Client ID:', GOOGLE_IOS_CLIENT_ID);
-console.log('Google Redirect URI:', GOOGLE_REDIRECT_URI);
-console.log('Using custom scheme for production builds');
-console.log('============================');
-
 // LinkedIn OAuth configuration
 const LINKEDIN_CLIENT_ID = '77bw10d90022pu';
 const LINKEDIN_REDIRECT_URI = 'https://omegaeducationaltechsolutions.com/linkedin-redirect';
 
 function SignInView({ navigation }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState("");
   // State for LinkedIn WebView modal
   const [showLinkedInModal, setShowLinkedInModal] = useState(false);
   const [linkedInAuthUrl, setLinkedInAuthUrl] = useState('');
@@ -84,33 +78,41 @@ function SignInView({ navigation }) {
 
   // Handle Google auth response
   useEffect(() => {
-    console.log('=== GOOGLE RESPONSE DEBUG ===');
-    console.log('Google response:', googleResponse);
-    console.log('Response type:', googleResponse?.type);
-    console.log('Response params:', googleResponse?.params);
-    console.log('============================');
-    
-    if (googleResponse?.type === 'success') {
+    const processGoogleResponse = async () => {
+      if (!googleResponse) {
+        return;
+      }
+
+      if (googleResponse?.type === 'success') {
+        setAuthLoading(true);
+        setAuthError("");
       const { code } = googleResponse.params;
-      console.log('Google auth success! Code:', code);
-      
+
       // Get the code verifier for PKCE if available
       const codeVerifier = googleRequest?.codeVerifier;
-      console.log('Code verifier from request:', !!codeVerifier);
-      
+
       const clientId = Platform.OS === 'android' ? GOOGLE_ANDROID_CLIENT_ID : GOOGLE_IOS_CLIENT_ID;
-      handleGoogleLogin(navigation, code, GOOGLE_REDIRECT_URI, codeVerifier, clientId);
-    } else if (googleResponse?.type === 'error') {
-      console.error('Google auth error:', googleResponse.error);
-    } else if (googleResponse?.type === 'cancel') {
-      console.log('Google auth cancelled by user');
-    }
+        const success = await handleGoogleLogin(navigation, code, GOOGLE_REDIRECT_URI, codeVerifier, clientId);
+        if (!success) {
+          setAuthError("Google sign in failed. Please try again.");
+        }
+        setAuthLoading(false);
+      } else if (googleResponse?.type === 'error') {
+        setAuthLoading(false);
+        setAuthError("Google sign in failed. Please try again.");
+      } else if (googleResponse?.type === 'cancel') {
+        setAuthLoading(false);
+      }
+    };
+
+    processGoogleResponse();
   }, [googleResponse]);
 
   // Handle LinkedIn login using custom WebView modal
   const handleLinkedInWebViewAuth = async () => {
     try {
-      console.log('Starting LinkedIn OAuth with custom WebView...');
+      setAuthLoading(true);
+      setAuthError("");
       
       // Generate state parameter for security
       const state = Math.random().toString(36).substring(7);
@@ -118,26 +120,21 @@ function SignInView({ navigation }) {
       // Build LinkedIn authorization URL with OpenID Connect scope
       const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(LINKEDIN_REDIRECT_URI)}&scope=openid%20profile%20email&state=${state}`;
       
-      console.log('LinkedIn auth URL:', authUrl);
-
       // Set the auth URL and show the modal
       setLinkedInAuthUrl(authUrl);
       setShowLinkedInModal(true);
       
     } catch (error) {
-      console.error('LinkedIn auth error:', error);
+      setAuthLoading(false);
+      setAuthError('LinkedIn login failed. Please try again.');
       Alert.alert('LinkedIn Login Error', `Error: ${error.message}`);
     }
   };
 
   // Handle WebView navigation state changes
   const handleWebViewNavigationStateChange = (navState) => {
-    console.log('WebView navigation state change:', navState.url);
-      
     // Check if the URL contains our redirect URI
     if (navState.url && navState.url.includes('omegaeducationaltechsolutions.com/linkedin-redirect')) {
-      console.log('LinkedIn redirect detected:', navState.url);
-      
       try {
         // Parse the URL to extract authorization code
         const url = new URL(navState.url);
@@ -148,24 +145,25 @@ function SignInView({ navigation }) {
         setShowLinkedInModal(false);
         
         if (error) {
-          console.error('LinkedIn OAuth error:', error);
+          setAuthLoading(false);
+          setAuthError('LinkedIn login failed. Please try again.');
           Alert.alert('LinkedIn Login Error', `Authorization failed: ${error}`);
           return;
         }
         
         if (!code) {
-          console.error('No authorization code received from LinkedIn');
+          setAuthLoading(false);
+          setAuthError('LinkedIn login failed. Please try again.');
           Alert.alert('LinkedIn Login Error', 'No authorization code received');
           return;
         }
-        
-        console.log('LinkedIn authorization code received:', code);
-        
+
         // Send code to backend for processing
-          handleLinkedInLogin(navigation, code);
+        handleLinkedInLogin(navigation, code).finally(() => setAuthLoading(false));
         
       } catch (error) {
-        console.error('Error parsing LinkedIn redirect URL:', error);
+        setAuthLoading(false);
+        setAuthError('LinkedIn login failed. Please try again.');
         Alert.alert('LinkedIn Login Error', 'Failed to process authorization response');
       }
     }
@@ -174,7 +172,8 @@ function SignInView({ navigation }) {
   // Handle WebView load error
   const handleWebViewError = (syntheticEvent) => {
     const { nativeEvent } = syntheticEvent;
-    console.error('WebView load error:', nativeEvent);
+    setAuthLoading(false);
+    setAuthError('LinkedIn login failed. Please try again.');
     setShowLinkedInModal(false);
     Alert.alert('LinkedIn Login Error', 'Failed to load LinkedIn login page');
   };
@@ -195,7 +194,7 @@ function SignInView({ navigation }) {
             activeUnderlineColor={"transparent"}
             multiline={false}
             returnKeyType="done"
-            onChangeText={(value) => (email = value)}
+            onChangeText={(value) => setEmail(value)}
             autoCapitalize="none"
           />
           <TextInput
@@ -207,9 +206,11 @@ function SignInView({ navigation }) {
             activeUnderlineColor={"transparent"}
             multiline={false}
             returnKeyType="done"
-            onChangeText={(value) => (password = value)}
+            onChangeText={(value) => setPassword(value)}
           />
         </KeyboardAvoidingView>
+
+        {authError ? <Text style={App_StyleSheet.authErrorText}>{authError}</Text> : null}
         
 
         
@@ -217,16 +218,24 @@ function SignInView({ navigation }) {
           style={App_StyleSheet.default_button}
           onPress={
             async () => {
-              let user = await login({ navigation }, email, password);
+              setAuthLoading(true);
+              setAuthError("");
+              const result = await login({ navigation }, email, password);
+              if (!result?.ok) {
+                setAuthError(result?.message || "Unable to sign in.");
+              }
+              setAuthLoading(false);
             }
           }
+          disabled={authLoading}
         >
-          <Text style={App_StyleSheet.text}>{"Sign In"}</Text>
+          <Text style={App_StyleSheet.text}>{authLoading ? "Signing In..." : "Sign In"}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={App_StyleSheet.default_button}
           onPress={() => navigation.navigate("Register")}
+          disabled={authLoading}
         >
           <Text style={App_StyleSheet.text}>{"Sign Up"}</Text>
         </TouchableOpacity>
@@ -241,8 +250,12 @@ function SignInView({ navigation }) {
         {/* Social Login Buttons */}
         <TouchableOpacity
           style={[App_StyleSheet.socialLoginButton, { backgroundColor: '#DB4437' }]}
-          onPress={() => googlePromptAsync()}
-          disabled={!googleRequest}
+          onPress={() => {
+            setAuthLoading(true);
+            setAuthError("");
+            googlePromptAsync();
+          }}
+          disabled={!googleRequest || authLoading}
         >
           <FontAwesome name="google" size={20} color="white" />
           <Text style={App_StyleSheet.socialButtonText}>Sign in with Google</Text>
@@ -251,6 +264,7 @@ function SignInView({ navigation }) {
         <TouchableOpacity
           style={[App_StyleSheet.socialLoginButton, { backgroundColor: '#0077B5' }]}
           onPress={handleLinkedInWebViewAuth}
+          disabled={authLoading}
         >
           <FontAwesome name="linkedin" size={20} color="white" />
           <Text style={App_StyleSheet.socialButtonText}>Sign in with LinkedIn</Text>
@@ -264,19 +278,23 @@ function SignInView({ navigation }) {
             style={App_StyleSheet.appleButton}
             onPress={async () => {
               try {
+                setAuthLoading(true);
+                setAuthError("");
                 const credential = await AppleAuthentication.signInAsync({
                   requestedScopes: [
                     AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
                     AppleAuthentication.AppleAuthenticationScope.EMAIL,
                   ],
                 });
-                handleAppleLogin(navigation, credential);
+                await handleAppleLogin(navigation, credential);
               } catch (e) {
                 if (e.code === 'ERR_REQUEST_CANCELED') {
                   // User canceled Apple sign in
                 } else {
-                  console.error('Apple sign in error', e);
+                  setAuthError('Apple sign in failed. Please try again.');
                 }
+              } finally {
+                setAuthLoading(false);
               }
             }}
           />

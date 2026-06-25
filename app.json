@@ -58,8 +58,7 @@
       "expo-mail-composer",
       "expo-web-browser",
       "expo-font",
-      "expo-splash-screen",
-      "expo-status-bar"
+      "expo-splash-screen"
     ],
     "extra": {
       "eas": {

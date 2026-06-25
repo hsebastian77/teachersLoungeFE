@@ -72,6 +72,13 @@ const App_StyleSheet = StyleSheet.create({
     color: UI_Colors.white,
     fontSize: 20,
   },
+  authErrorText: {
+    color: '#B3261E',
+    marginTop: 6,
+    marginBottom: 2,
+    textAlign: 'center',
+    fontSize: 14,
+  },
   textBlock: {
     height: 40,
     margin: 5,

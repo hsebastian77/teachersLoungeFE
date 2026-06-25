@@ -8,7 +8,6 @@ import { apiUrl, registerRoute, PASSWORD_ENCRYPTER } from "@env";
 async function register({ navigation }, fName, lName, username, email, password){
   if ((fName != "") && (lName != "") && (username != "") && (email != "") && (password != "")) {
     let urlRegister = apiUrl + registerRoute;
-    console.log(urlRegister)
     const reqOptions = {
       method: 'POST',
       headers: {
@@ -16,18 +15,24 @@ async function register({ navigation }, fName, lName, username, email, password)
       },
       body: JSON.stringify({ firstName: fName, lastName: lName, username: username, email: email, password: password, role: "Approved" })
     };
-    const response = await fetch(urlRegister, reqOptions);
-    const data = await response.json();
-    if (response.status != 200) {
-      Alert.alert("Failed to register: ", data.message);
-    } else {
-      let user = new User(email, fName, lName);
-      navigation.navigate("Login");
-      Alert.alert("Account Created!");
-
+    try {
+      const response = await fetch(urlRegister, reqOptions);
+      const data = await response.json();
+      if (response.status != 200) {
+        return { ok: false, message: data.message || "Failed to register" };
+      } else {
+        let user = new User(email, fName, lName);
+        navigation.navigate("Login");
+        return { ok: true, message: "Account Created!" };
+      }
+    } catch (error) {
+      return {
+        ok: false,
+        message: "Unable to connect to server. Please check your internet connection.",
+      };
     }
   } else {
-    Alert.alert("Error: ", "Fields cannot be blank");
+    return { ok: false, message: "Fields cannot be blank" };
   }
 }
 

@@ -6,15 +6,7 @@ import { Alert } from 'react-native';
 // Handles Google login authentication
 export const handleGoogleLogin = async (navigation, authorizationCode, redirectUri, codeVerifier, clientId) => {
   try {
-    console.log('=== GOOGLE LOGIN DEBUG ===');
-    console.log('Processing Google authorization code:', authorizationCode);
-    console.log('Using redirect URI:', redirectUri);
-    console.log('Code verifier present:', !!codeVerifier);
-    console.log('Client ID:', clientId);
-    console.log('API URL:', apiUrl);
-    
     const requestUrl = `${apiUrl}/api/auth/google`;
-    console.log('Making request to:', requestUrl);
     
     // Prepare request body
     const requestBody = { 
@@ -37,26 +29,16 @@ export const handleGoogleLogin = async (navigation, authorizationCode, redirectU
       body: JSON.stringify(requestBody),
     });
 
-    console.log('Response status:', response.status);
-    console.log('Response ok:', response.ok);
-    
     const data = await response.json();
-    console.log('Backend response:', data);
-    console.log('=== END GOOGLE LOGIN DEBUG ===');
 
     if (response.status === 200) {
       await handleSocialLoginSuccess(navigation, data);
       return true;
     } else {
-      console.error('Login failed with status:', response.status);
       Alert.alert('Login Error', data.message || 'Failed to login with Google');
       return false;
     }
   } catch (error) {
-    console.error('=== GOOGLE LOGIN ERROR ===');
-    console.error('Error details:', error);
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
     Alert.alert('Error', 'Failed to login with Google: ' + error.message);
     return false;
   }

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -14,13 +14,15 @@ import App_StyleSheet from "../Styles/App_StyleSheet";
 const screenHeight = Dimensions.get("window").height;
 const screenWidth = Dimensions.get("window").width;
 
-let firstName = "";
-let lastName = "";
-let username = "";
-let email = "";
-let password = "";
-
 function RegisterView({ navigation, route }) {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [registerLoading, setRegisterLoading] = useState(false);
+  const [registerError, setRegisterError] = useState("");
+
   return (
     <View style={App_StyleSheet.register_signIn_background}>
       <View style={App_StyleSheet.block}>
@@ -30,7 +32,7 @@ function RegisterView({ navigation, route }) {
           underlineColor={"transparent"}
           selectionColor={"black"}
           activeUnderlineColor={"transparent"}
-          onChangeText={(value) => (firstName = value)}
+          onChangeText={(value) => setFirstName(value)}
         />
 
         <TextInput
@@ -39,7 +41,7 @@ function RegisterView({ navigation, route }) {
           underlineColor={"transparent"}
           selectionColor={"black"}
           activeUnderlineColor={"transparent"}
-          onChangeText={(value) => (lastName = value)}
+          onChangeText={(value) => setLastName(value)}
         />
 
         <TextInput
@@ -48,7 +50,7 @@ function RegisterView({ navigation, route }) {
           underlineColor={"transparent"}
           selectionColor={"black"}
           activeUnderlineColor={"transparent"}
-          onChangeText={(value) => (username = value)}
+          onChangeText={(value) => setUsername(value)}
         />
 
         <TextInput
@@ -57,7 +59,7 @@ function RegisterView({ navigation, route }) {
           underlineColor={"transparent"}
           selectionColor={"black"}
           activeUnderlineColor={"transparent"}
-          onChangeText={(value) => (email = value)}
+          onChangeText={(value) => setEmail(value)}
         />
 
         <TextInput
@@ -67,21 +69,38 @@ function RegisterView({ navigation, route }) {
           selectionColor={"black"}
           activeUnderlineColor={"transparent"}
           placeholder="Password"
-          onChangeText={(value) => (password = value)}
+          onChangeText={(value) => setPassword(value)}
         />
+
+        {registerError ? <Text style={App_StyleSheet.authErrorText}>{registerError}</Text> : null}
 
         <TouchableOpacity
           style={App_StyleSheet.default_button}
-          onPress={() =>
-            register({ navigation }, firstName, lastName, username, email, password)
-          }
+          onPress={async () => {
+            setRegisterLoading(true);
+            setRegisterError("");
+            const result = await register(
+              { navigation },
+              firstName,
+              lastName,
+              username,
+              email,
+              password
+            );
+            if (!result?.ok) {
+              setRegisterError(result?.message || "Unable to register.");
+            }
+            setRegisterLoading(false);
+          }}
+          disabled={registerLoading}
         >
-          <Text style={App_StyleSheet.text}>{"Confirm"}</Text>
+          <Text style={App_StyleSheet.text}>{registerLoading ? "Creating Account..." : "Confirm"}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={App_StyleSheet.default_button}
           onPress={() => navigation.navigate("Login")}
+          disabled={registerLoading}
         >
           <Text style={App_StyleSheet.text}>{"Back"}</Text>
         </TouchableOpacity>
