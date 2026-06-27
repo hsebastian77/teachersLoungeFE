@@ -92,9 +92,9 @@ function SignInView({ navigation }) {
       const codeVerifier = googleRequest?.codeVerifier;
 
       const clientId = Platform.OS === 'android' ? GOOGLE_ANDROID_CLIENT_ID : GOOGLE_IOS_CLIENT_ID;
-        const success = await handleGoogleLogin(navigation, code, GOOGLE_REDIRECT_URI, codeVerifier, clientId);
-        if (!success) {
-          setAuthError("Google sign in failed. Please try again.");
+        const result = await handleGoogleLogin(navigation, code, GOOGLE_REDIRECT_URI, codeVerifier, clientId);
+        if (!result?.ok) {
+          setAuthError(result?.message || "Google sign in failed. Please try again.");
         }
         setAuthLoading(false);
       } else if (googleResponse?.type === 'error') {
