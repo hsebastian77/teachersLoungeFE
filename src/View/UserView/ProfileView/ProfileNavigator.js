@@ -12,9 +12,7 @@ import UserModeratorView from "../ProfileView/UserModeratorView";
 
 const Stack = createNativeStackNavigator();
 
-function ProfileNavigator({ route }) {
-  const params = route?.params;
-
+export default function ProfileNavigator() {
   return (
     <Stack.Navigator
       screenOptions={{
@@ -34,53 +32,38 @@ function ProfileNavigator({ route }) {
       <Stack.Screen
         name="Profile"
         component={ProfileView}
-        initialParams={params}
         options={{ headerLeft: () => null }}
       />
 
       <Stack.Screen
         name="Edit Profile"
         component={EditProfileView}
-        initialParams={params}
         options={{ headerBackTitleVisible: false }}
       />
 
       <Stack.Screen
         name="Edit"
         component={EditView}
-        initialParams={params}
         options={{ headerBackTitleVisible: false }}
       />
 
       <Stack.Screen
         name="Settings"
         component={SettingsView}
-        initialParams={params}
-        options={{ headerBackTitleVisible: false }}
-      />
-
-      <Stack.Screen
-        name="Home"
-        component={PostListingsView}
-        initialParams={params}
         options={{ headerBackTitleVisible: false }}
       />
 
       <Stack.Screen
         name="User Moderation"
         component={UserModeratorView}
-        initialParams={params}
         options={{ headerBackTitleVisible: false }}
       />
 
       <Stack.Screen
         name="Post Moderation"
         component={PostModeratorView}
-        initialParams={params}
         options={{ headerBackTitleVisible: false }}
       />
     </Stack.Navigator>
   );
 }
-
-export default ProfileNavigator;

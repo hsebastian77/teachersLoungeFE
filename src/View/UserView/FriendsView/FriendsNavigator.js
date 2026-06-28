@@ -1,6 +1,5 @@
 import React from "react";
 import { TouchableOpacity, Image } from "react-native";
-import { useRoute } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import FriendsView from "./FriendsView";
@@ -24,8 +23,6 @@ const SearchButton = ({ navigation }) => (
 );
 
 function FriendsNavigator({ navigation }) {
-  const route = useRoute();
-
   const defaultOptions = {
     headerTitleAlign: "left",
     headerStyle: {
@@ -46,7 +43,6 @@ function FriendsNavigator({ navigation }) {
       <Stack.Screen
         name="Friends"
         component={FriendsView}
-        initialParams={route.params}
         options={{
           headerBackTitleVisible: false,
           headerLeft: () => null,
@@ -57,14 +53,12 @@ function FriendsNavigator({ navigation }) {
       <Stack.Screen
         name="Friend"
         component={FriendView}
-        initialParams={route.params}
         options={{ headerBackTitleVisible: false }}
       />
 
       <Stack.Screen
         name="Search"
         component={SearchUserView}
-        initialParams={route.params}
         options={{ headerBackTitleVisible: false }}
       />
     </Stack.Navigator>
