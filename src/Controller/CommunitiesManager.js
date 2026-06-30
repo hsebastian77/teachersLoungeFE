@@ -178,7 +178,8 @@ async function getCommunityPosts(communityID, userEmail) {
           [],
           data[count].fileurl,
           data[count].communityname,
-          data[count].commentscount
+          data[count].commentscount,
+          data[count].createdat
         )
       );
       count = count + 1;

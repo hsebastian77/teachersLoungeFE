@@ -23,6 +23,29 @@ function PostComponentView({ navigation, post, User }) {
   let likeFilledImg = require("../../../../assets/like_filled.png");
   let commentImg = require("../../../../assets/comment.png");
 
+
+  const formatPostTime = (createdAt) => {
+    if (!createdAt) {
+      return "";
+    }
+
+    const timestamp =
+      typeof createdAt === "string" && !createdAt.endsWith("Z")
+        ? createdAt + "Z"
+        : createdAt;
+
+    const date = new Date(timestamp);
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hour = String(date.getHours()).padStart(2, "0");
+    const minute = String(date.getMinutes()).padStart(2, "0");
+    const second = String(date.getSeconds()).padStart(2, "0");
+
+    return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+  };
+
   useEffect(() => {
     if (post?.id && User?.userUserName) {
       async function fetchLikeData() {
@@ -86,6 +109,9 @@ function PostComponentView({ navigation, post, User }) {
     >
       <View style={styles.text}>
       <Text style={styles.title}>{post.title || "no title"}</Text>
+      {post.createdAt && (
+        <Text style={styles.timestamp}>{formatPostTime(post.createdAt)}</Text>
+      )}
         <Text style={styles.content}>{post.postContent}</Text>
 
         {post.fileUrl && (
@@ -133,6 +159,11 @@ const styles = StyleSheet.create({
     color: "black",
     fontSize: 16,
     fontWeight: "bold",
+    marginBottom: 10,
+  },
+  timestamp: {
+    color: "#666666",
+    fontSize: 12,
     marginBottom: 10,
   },
   content: {

@@ -32,6 +32,23 @@ function PostView({ route, navigation }) {
   let likeFilledImg = require("../../../../assets/like_filled.png");
   let commentImg = require("../../../../assets/comment.png");
 
+  const formatPostTime = (createdAt) => {
+    if (!createdAt) {
+      return "";
+   }
+
+    const date = new Date(createdAt);
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hour = String(date.getHours()).padStart(2, "0");
+    const minute = String(date.getMinutes()).padStart(2, "0");
+    const second = String(date.getSeconds()).padStart(2, "0");
+
+    return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+  };
+
   useEffect(() => {
     if (post?.id) {
       getCommentsByPostId(post.id, route.params.User.userUserName).then((commentsData) => setComments(commentsData));
@@ -111,6 +128,9 @@ function PostView({ route, navigation }) {
         <View style={styles.post}>
           <View style={styles.text}>
             <Text style={styles.title}>{post.title || "no title"}</Text>
+            {post.createdAt && (
+              <Text style={styles.timestamp}>{formatPostTime(post.createdAt)}</Text>
+              )}
             <Text style={styles.content}>{post.postContent}</Text>
             {post.fileUrl && (
               <Text style={styles.linkText} onPress={() => Linking.openURL(post.fileUrl)}>
@@ -183,6 +203,11 @@ const styles = StyleSheet.create({
     color: "black",
     fontSize: 28,
     fontWeight: "bold",
+    marginBottom: 10,
+  },
+  timestamp: {
+    color: "#666666",
+    fontSize: 14,
     marginBottom: 10,
   },
   content: {

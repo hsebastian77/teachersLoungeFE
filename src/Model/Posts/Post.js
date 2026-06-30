@@ -2,7 +2,7 @@ import React from "react";
 import Comment from "./Comment";
 
 class Post {
-  constructor(id, user, title, postContent, likes, comments, fileUrl, communityName, commentsCount) {
+  constructor(id, user, title, postContent, likes, comments, fileUrl, communityName, commentsCount, createdAt) {
     this.id = id;
     this.user = user;
     this.title = title;
@@ -12,6 +12,7 @@ class Post {
     this.fileUrl = fileUrl;
     this.communityName = communityName;
     this.commentsCount = commentsCount;
+    this.createdAt = createdAt;
   }
 }
 
