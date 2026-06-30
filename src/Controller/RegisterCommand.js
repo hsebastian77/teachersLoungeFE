@@ -3,10 +3,34 @@ import User from "../Model/User";
 import { Alert } from "react-native";
 import { apiUrl, registerRoute, PASSWORD_ENCRYPTER } from "@env";
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PASSWORD_REQUIREMENTS = {
+  minLength: 8,
+  upper: /[A-Z]/,
+  number: /[0-9]/,
+  symbol: /[^A-Za-z0-9]/,
+};
+
 
 //Called from the RegisterView, creates a new user
 async function register({ navigation }, fName, lName, username, email, password){
   if ((fName != "") && (lName != "") && (username != "") && (email != "") && (password != "")) {
+    if (!EMAIL_REGEX.test(email)) {
+      return { ok: false, message: "Please enter a valid email address." };
+    }
+
+    if (
+      password.length < PASSWORD_REQUIREMENTS.minLength ||
+      !PASSWORD_REQUIREMENTS.upper.test(password) ||
+      !PASSWORD_REQUIREMENTS.number.test(password) ||
+      !PASSWORD_REQUIREMENTS.symbol.test(password)
+    ) {
+      return {
+        ok: false,
+        message: "Password must be at least 8 characters and include a capital letter, a number, and a symbol.",
+      };
+    }
+
     let urlRegister = apiUrl + registerRoute;
     const reqOptions = {
       method: 'POST',

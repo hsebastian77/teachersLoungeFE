@@ -196,6 +196,8 @@ function SignInView({ navigation }) {
             returnKeyType="done"
             onChangeText={(value) => setEmail(value)}
             autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
           />
           <TextInput
             secureTextEntry={true}

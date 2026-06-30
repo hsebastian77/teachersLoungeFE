@@ -137,9 +137,12 @@ function TwoFactorAuthView({ navigation, route }) {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={App_StyleSheet.block}>
-        <Text style={App_StyleSheet.twoFactorTitle}>Two-Factor Authentication</Text>
+        <Text style={App_StyleSheet.twoFactorTitle}>Email Verification</Text>
         <Text style={App_StyleSheet.twoFactorSubtitle}>
-          Enter the 6-digit code sent to your email
+          Enter the 6-digit code sent to the email address on file
+        </Text>
+        <Text style={App_StyleSheet.fieldHelperText}>
+          If you do not see the code, check your spam folder or use Resend Code after the timer ends.
         </Text>
         
         <View style={App_StyleSheet.otpContainer}>

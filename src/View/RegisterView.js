@@ -11,6 +11,8 @@ import { TextInput } from "react-native-paper";
 import { register } from "../Controller/RegisterCommand";
 import App_StyleSheet from "../Styles/App_StyleSheet";
 
+const PASSWORD_GUIDANCE = "Password must be 8+ characters and include a capital letter, a number, and a symbol.";
+
 const screenHeight = Dimensions.get("window").height;
 const screenWidth = Dimensions.get("window").width;
 
@@ -59,6 +61,9 @@ function RegisterView({ navigation, route }) {
           underlineColor={"transparent"}
           selectionColor={"black"}
           activeUnderlineColor={"transparent"}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="email-address"
           onChangeText={(value) => setEmail(value)}
         />
 
@@ -71,6 +76,8 @@ function RegisterView({ navigation, route }) {
           placeholder="Password"
           onChangeText={(value) => setPassword(value)}
         />
+
+        <Text style={App_StyleSheet.fieldHelperText}>{PASSWORD_GUIDANCE}</Text>
 
         {registerError ? <Text style={App_StyleSheet.authErrorText}>{registerError}</Text> : null}
 
