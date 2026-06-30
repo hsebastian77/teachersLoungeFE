@@ -29,18 +29,26 @@ export const handleGoogleLogin = async (navigation, authorizationCode, redirectU
       body: JSON.stringify(requestBody),
     });
 
-    const data = await response.json();
+    const rawResponse = await response.text();
+    let data = {};
+    try {
+      data = rawResponse ? JSON.parse(rawResponse) : {};
+    } catch (parseError) {
+      data = { message: rawResponse || 'Invalid server response' };
+    }
 
     if (response.status === 200) {
       await handleSocialLoginSuccess(navigation, data);
-      return true;
+      return { ok: true };
     } else {
-      Alert.alert('Login Error', data.message || 'Failed to login with Google');
-      return false;
+      const message = data.message || 'Failed to login with Google';
+      Alert.alert('Login Error', message);
+      return { ok: false, message };
     }
   } catch (error) {
-    Alert.alert('Error', 'Failed to login with Google: ' + error.message);
-    return false;
+    const message = 'Failed to login with Google: ' + error.message;
+    Alert.alert('Error', message);
+    return { ok: false, message };
   }
 };
 

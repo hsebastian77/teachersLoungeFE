@@ -3,9 +3,15 @@ import User from "../Model/User";
 import * as SecureStore from 'expo-secure-store';
 import { apiUrl, loginRoute } from "@env";
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 //Logs user into the app based on their email and password
 async function login({ navigation }, email, password) {
   if (email != "" && password != "") {
+    if (!EMAIL_REGEX.test(email)) {
+      return { ok: false, message: "Please enter a valid email address." };
+    }
+
     //URL for server
     let urlLogin = apiUrl + loginRoute;
     const reqOptions = {
