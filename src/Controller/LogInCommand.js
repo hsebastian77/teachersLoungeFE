@@ -3,14 +3,20 @@ import User from "../Model/User";
 import * as SecureStore from 'expo-secure-store';
 import { apiUrl, loginRoute } from "@env";
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const safeParseJson = async (response) => {
+  const text = await response.text();
+  if (!text) return {};
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    return { message: text };
+  }
+};
 
 //Logs user into the app based on their email and password
-async function login({ navigation }, email, password) {
-  if (email != "" && password != "") {
-    if (!EMAIL_REGEX.test(email)) {
-      return { ok: false, message: "Please enter a valid email address." };
-    }
+async function login({ navigation }, identifier, password) {
+  if (identifier != "" && password != "") {
 
     //URL for server
     let urlLogin = apiUrl + loginRoute;
@@ -19,12 +25,18 @@ async function login({ navigation }, email, password) {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ username: email, password: password }),
+      // Send both keys for backend compatibility (some versions expect username, others email).
+      body: JSON.stringify({
+        identifier,
+        username: identifier,
+        email: identifier,
+        password: password,
+      }),
     };
     
     try {
       const response = await fetch(urlLogin, reqOptions);
-      const data = await response.json();
+      const data = await safeParseJson(response);
 
       if (response.status != 200) {
         return { ok: false, message: data.message || "Unable to sign in" };
@@ -48,16 +60,32 @@ async function login({ navigation }, email, password) {
             await SecureStore.setItemAsync("token", data.token);
 
             // Store username in secure store
-            await SecureStore.setItemAsync("username", email);
+            await SecureStore.setItemAsync("username", data.user.Email || identifier);
 
             if (user.userRole == "Approved" || user.userRole == "Admin") {
+              const emailVerified =
+                data?.emailVerified ??
+                data?.isEmailVerified ??
+                data?.user?.emailVerified ??
+                data?.user?.isEmailVerified ??
+                data?.user?.EmailVerified;
+
+              const requires2FA =
+                emailVerified === false ||
+                data?.requiresEmailVerification === true ||
+                data?.requiresVerification === true ||
+                (typeof data.requires2FA === "boolean" ? data.requires2FA : true);
+
               // Check if this is the admin account which should bypass 2FA
-              if (email.toLowerCase() === "admin@admin.com") {
+              if ((data.user.Email || identifier).toLowerCase() === "admin@admin.com") {
                 // Admin account bypasses 2FA and goes directly to main app
                 navigation.navigate("User", { User: user });
               } else {
-                // 2FA is mandatory for all other users
-              navigation.navigate("TwoFactorAuth", { User: user, email: email });
+                if (requires2FA) {
+                  navigation.navigate("TwoFactorAuth", { User: user, email: data.user.Email || identifier });
+                } else {
+                  navigation.navigate("User", { User: user });
+                }
               }
               return { ok: true };
             } else {
@@ -75,11 +103,11 @@ async function login({ navigation }, email, password) {
     } catch (error) {
       return {
         ok: false,
-        message: "Unable to connect to server. Please check your internet connection.",
+        message: `Unable to connect to server at ${apiUrl}. Please check your internet connection and backend server.`,
       };
     }
   } else {
-    return { ok: false, message: "Email and password must not be blank" };
+    return { ok: false, message: "Email/username and password must not be blank" };
   }
 }
 

@@ -86,18 +86,23 @@ function RegisterView({ navigation, route }) {
           onPress={async () => {
             setRegisterLoading(true);
             setRegisterError("");
-            const result = await register(
-              { navigation },
-              firstName,
-              lastName,
-              username,
-              email,
-              password
-            );
-            if (!result?.ok) {
-              setRegisterError(result?.message || "Unable to register.");
+            try {
+              const result = await register(
+                { navigation },
+                firstName,
+                lastName,
+                username,
+                email,
+                password
+              );
+              if (!result?.ok) {
+                setRegisterError(result?.message || "Unable to register.");
+              }
+            } catch (error) {
+              setRegisterError("Unable to register. Please try again.");
+            } finally {
+              setRegisterLoading(false);
             }
-            setRegisterLoading(false);
           }}
           disabled={registerLoading}
         >
