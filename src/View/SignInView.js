@@ -188,7 +188,7 @@ function SignInView({ navigation }) {
         >
           <TextInput
             style={App_StyleSheet.textBlock}
-            placeholder="Email"
+            placeholder="Email or Username"
             underlineColor={"transparent"}
             selectionColor={"black"}
             activeUnderlineColor={"transparent"}
@@ -222,11 +222,16 @@ function SignInView({ navigation }) {
             async () => {
               setAuthLoading(true);
               setAuthError("");
-              const result = await login({ navigation }, email, password);
-              if (!result?.ok) {
-                setAuthError(result?.message || "Unable to sign in.");
+              try {
+                const result = await login({ navigation }, email, password);
+                if (!result?.ok) {
+                  setAuthError(result?.message || "Unable to sign in.");
+                }
+              } catch (error) {
+                setAuthError("Unable to sign in. Please try again.");
+              } finally {
+                setAuthLoading(false);
               }
-              setAuthLoading(false);
             }
           }
           disabled={authLoading}
@@ -252,10 +257,26 @@ function SignInView({ navigation }) {
         {/* Social Login Buttons */}
         <TouchableOpacity
           style={[App_StyleSheet.socialLoginButton, { backgroundColor: '#DB4437' }]}
-          onPress={() => {
-            setAuthLoading(true);
+          onPress={async () => {
             setAuthError("");
-            googlePromptAsync();
+            try {
+              const promptResult = await googlePromptAsync();
+
+              // If the prompt is dismissed or canceled before a success callback,
+              // make sure we do not leave the UI in a loading state.
+              if (!promptResult || promptResult.type === 'dismiss' || promptResult.type === 'cancel') {
+                setAuthLoading(false);
+                return;
+              }
+
+              if (promptResult.type === 'error') {
+                setAuthLoading(false);
+                setAuthError('Google sign in failed. Please try again.');
+              }
+            } catch (error) {
+              setAuthLoading(false);
+              setAuthError('Google sign in failed. Please try again.');
+            }
           }}
           disabled={!googleRequest || authLoading}
         >

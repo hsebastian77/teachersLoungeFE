@@ -1,14 +1,30 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Alert, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import App_StyleSheet from '../Styles/App_StyleSheet';
-import { apiUrl } from '@env';
+import { apiUrl, sendOtpRoute, verifyOtpRoute } from '@env';
 import * as SecureStore from 'expo-secure-store';
 
+const SEND_OTP_ROUTE = sendOtpRoute || '/api/auth/send-otp';
+const VERIFY_OTP_ROUTE = verifyOtpRoute || '/api/auth/verify-otp';
+
+const safeJson = async (response) => {
+  const text = await response.text();
+  if (!text) return {};
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    return { message: text };
+  }
+};
+
 function TwoFactorAuthView({ navigation, route }) {
-  const { User, email } = route.params;
+  const { User, email, fromRegistration = false, registrationData = {} } = route.params || {};
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [resendTimer, setResendTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const inputRefs = useRef([]);
 
   useEffect(() => {
@@ -31,17 +47,24 @@ function TwoFactorAuthView({ navigation, route }) {
   }, []);
 
   const sendOTP = async () => {
+    if (!email) {
+      Alert.alert('Error', 'Missing email address for verification.');
+      return;
+    }
+
+    setIsSending(true);
     try {
-      const response = await fetch(`${apiUrl}/api/auth/send-otp`, {
+      const token = await SecureStore.getItemAsync("token");
+      const response = await fetch(`${apiUrl}${SEND_OTP_ROUTE}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + (await SecureStore.getItemAsync("token")),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ email }),
       });
 
-      const data = await response.json();
+      const data = await safeJson(response);
       if (response.status === 200) {
         Alert.alert('Success', 'Verification code sent to your email');
       } else {
@@ -49,6 +72,8 @@ function TwoFactorAuthView({ navigation, route }) {
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to send verification code');
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -98,20 +123,36 @@ function TwoFactorAuthView({ navigation, route }) {
   };
 
   const verifyOTP = async (otpCode) => {
+    if (!email) {
+      Alert.alert('Error', 'Missing email address for verification.');
+      return;
+    }
+
+    const normalizedOtp = (otpCode || otp.join('')).trim();
+    if (normalizedOtp.length !== 6) {
+      Alert.alert('Error', 'Please enter the full 6-digit code.');
+      return;
+    }
+
+    setIsVerifying(true);
     try {
-      const response = await fetch(`${apiUrl}/api/auth/verify-otp`, {
+      const token = await SecureStore.getItemAsync("token");
+      const response = await fetch(`${apiUrl}${VERIFY_OTP_ROUTE}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + (await SecureStore.getItemAsync("token")),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           email,
-          otp: otpCode || otp.join('') 
+          otp: normalizedOtp,
+          username: registrationData.username,
+          firstName: registrationData.firstName,
+          lastName: registrationData.lastName,
         }),
       });
 
-      const data = await response.json();
+      const data = await safeJson(response);
       if (response.status === 200) {
         // Update token with 2FA verified token
         if (data.token) {
@@ -119,15 +160,21 @@ function TwoFactorAuthView({ navigation, route }) {
         }
         
         Alert.alert('Success', 'Verification successful!');
-        navigation.navigate("User", { User });
+        if (fromRegistration || !User) {
+          navigation.replace('Login');
+        } else {
+          navigation.replace("User", { User });
+        }
       } else {
-        Alert.alert('Error', data.message || 'Invalid verification code');
+        Alert.alert('Error', data.message || `Invalid verification code (status ${response.status})`);
         // Clear OTP inputs
         setOtp(['', '', '', '', '', '']);
         inputRefs.current[0]?.focus();
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to verify code');
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -165,14 +212,15 @@ function TwoFactorAuthView({ navigation, route }) {
         <TouchableOpacity
           style={App_StyleSheet.default_button}
           onPress={() => verifyOTP()}
+          disabled={isVerifying}
         >
-          <Text style={App_StyleSheet.text}>Verify</Text>
+          <Text style={App_StyleSheet.text}>{isVerifying ? 'Verifying...' : 'Verify'}</Text>
         </TouchableOpacity>
 
         <View style={App_StyleSheet.resendContainer}>
           {canResend ? (
-            <TouchableOpacity onPress={handleResendOTP}>
-              <Text style={App_StyleSheet.resendText}>Resend Code</Text>
+            <TouchableOpacity onPress={handleResendOTP} disabled={isSending || isVerifying}>
+              <Text style={App_StyleSheet.resendText}>{isSending ? 'Sending...' : 'Resend Code'}</Text>
             </TouchableOpacity>
           ) : (
             <Text style={App_StyleSheet.resendTimerText}>

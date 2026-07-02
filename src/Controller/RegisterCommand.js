@@ -11,6 +11,17 @@ const PASSWORD_REQUIREMENTS = {
   symbol: /[^A-Za-z0-9]/,
 };
 
+const safeParseJson = async (response) => {
+  const text = await response.text();
+  if (!text) return {};
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    return { message: text };
+  }
+};
+
 
 //Called from the RegisterView, creates a new user
 async function register({ navigation }, fName, lName, username, email, password){
@@ -41,18 +52,26 @@ async function register({ navigation }, fName, lName, username, email, password)
     };
     try {
       const response = await fetch(urlRegister, reqOptions);
-      const data = await response.json();
+      const data = await safeParseJson(response);
       if (response.status != 200) {
         return { ok: false, message: data.message || "Failed to register" };
       } else {
-        let user = new User(email, fName, lName);
-        navigation.navigate("Login");
+        navigation.navigate("TwoFactorAuth", {
+          email,
+          fromRegistration: true,
+          registrationData: {
+            email,
+            username,
+            firstName: fName,
+            lastName: lName,
+          },
+        });
         return { ok: true, message: "Account Created!" };
       }
     } catch (error) {
       return {
         ok: false,
-        message: "Unable to connect to server. Please check your internet connection.",
+        message: `Unable to connect to server at ${apiUrl}. Please check your internet connection and backend server.`,
       };
     }
   } else {
