@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useAuth } from "../../../context/AuthContext";
 import {
   StyleSheet,
   Text,
@@ -8,14 +9,18 @@ import {
   Linking,
   Alert,
 } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 import { useRoute, useFocusEffect } from "@react-navigation/native";
 import { likePost } from "../../../Controller/LikePostCommand";
 import { unlikePost } from "../../../Controller/UnlikePostCommand";
 import { getPostLikes } from "../../../Controller/GetPostLikesCommand";
 import { checkLikePost } from "../../../Controller/CheckLikedPostCommand";
 
-function PostComponentView({ navigation, post, User }) {
+function PostComponentView({ post }) {
+  const { user } = useAuth();
+  const navigation = useNavigation();
   const route = useRoute();
+
   const [isLiked, setIsLiked] = useState(false);
   const [likes, setLikes] = useState(Number(post.likes));
 
@@ -23,28 +28,31 @@ function PostComponentView({ navigation, post, User }) {
   let likeFilledImg = require("../../../../assets/like_filled.png");
   let commentImg = require("../../../../assets/comment.png");
 
+  // Initialize like state properly
   useEffect(() => {
-    if (post?.id && User?.userUserName) {
-      async function fetchLikeData() {
-        try {
-          const liked = await checkLikePost(post, User.userUserName);
-          setIsLiked(liked);
-        } catch (error) {
-          console.error("Error fetching like data:", error);
-        }
-      }
-      fetchLikeData();
-    }
-  }, [post, User]);
+    const init = async () => {
+      if (!user?.userUserName) return;
 
-  // Add focus effect to update likes when returning from PostView
+      try {
+        const liked = await checkLikePost(post, user.userUserName);
+        setIsLiked(liked);
+
+        const totalLikes = await getPostLikes(post);
+        setLikes(Number(totalLikes));
+      } catch (error) {
+        console.error("Error initializing likes:", error);
+      }
+    };
+
+    init();
+  }, []);
+
+  // Update likes when coming back from PostView
   useFocusEffect(
     useCallback(() => {
-      // Check if we have an updated post from the post view
       if (route.params?.updatedPost && route.params.updatedPost.id === post.id) {
         setLikes(Number(route.params.updatedPost.likes));
-        post.likes = Number(route.params.updatedPost.likes);
-        // Clear the param to avoid repeat updates
+
         navigation.setParams({ updatedPost: undefined });
       }
     }, [route.params?.updatedPost])
@@ -53,18 +61,16 @@ function PostComponentView({ navigation, post, User }) {
   const handleLikeToggle = async () => {
     try {
       if (isLiked) {
-        const unlikeSuccess = await unlikePost(post, User.userUserName);
+        const unlikeSuccess = await unlikePost(post, user.userUserName);
         if (unlikeSuccess) {
           setIsLiked(false);
           setLikes((prevLikes) => prevLikes - 1);
-          post.likes = Math.max(0, post.likes - 1);
         }
       } else {
-        const likeSuccess = await likePost(post, User.userUserName);
+        const likeSuccess = await likePost(post, user.userUserName);
         if (likeSuccess) {
           setIsLiked(true);
           setLikes((prevLikes) => prevLikes + 1);
-          post.likes += 1;
         }
       }
     } catch (error) {
@@ -73,6 +79,7 @@ function PostComponentView({ navigation, post, User }) {
     }
   };
 
+  const communityName = post.communityName || post.user;
 
   return (
     <TouchableOpacity
@@ -80,12 +87,11 @@ function PostComponentView({ navigation, post, User }) {
       onPress={() => {
         navigation.navigate("View Post", {
           post,
-          User
         });
       }}
     >
       <View style={styles.text}>
-      <Text style={styles.title}>{post.title || "no title"}</Text>
+        <Text style={styles.title}>{post.title || "no title"}</Text>
         <Text style={styles.content}>{post.postContent}</Text>
 
         {post.fileUrl && (
@@ -101,8 +107,10 @@ function PostComponentView({ navigation, post, User }) {
       <View style={styles.footer}>
         <View style={styles.footerSection}>
           <TouchableOpacity onPress={handleLikeToggle}>
-            { }
-            <Image style={styles.icon} source={isLiked ? likeFilledImg : likeImg} />
+            <Image
+              style={styles.icon}
+              source={isLiked ? likeFilledImg : likeImg}
+            />
           </TouchableOpacity>
           <Text>{likes}</Text>
         </View>
@@ -112,62 +120,8 @@ function PostComponentView({ navigation, post, User }) {
           <Text>{post.commentsCount}</Text>
         </View>
 
-        <Text style={styles.communityName}>{route.params?.Community ? post.user : (post.communityName || post.user)}</Text>
+        <Text style={styles.communityName}>{communityName}</Text>
       </View>
     </TouchableOpacity>
   );
 }
-
-const styles = StyleSheet.create({
-  post: {
-    width: "90%",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 10,
-    alignSelf: "center",
-    marginBottom: 15,
-  },
-  text: {
-    padding: 20,
-  },
-  title: {
-    color: "black",
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
-  content: {
-    color: "black",
-    fontSize: 15,
-  },
-  linkText: {
-    color: "blue",
-    fontSize: 15,
-    marginTop: 10,
-  },
-  footer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderRadius: 9,
-    backgroundColor: "#E7ECFE",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-  },
-  footerSection: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingRight: 8,
-  },
-  icon: {
-    width: 30,
-    height: 30,
-    marginHorizontal: 5,
-  },
-  communityName: {
-    marginLeft: "auto",
-    fontWeight: "bold",
-    marginHorizontal: 5,
-  },
-});
-
-export default PostComponentView;

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useAuth } from "../../../context/AuthContext";
 import {
   StyleSheet,
   Text,
@@ -17,50 +18,15 @@ import * as FileSystem from 'expo-file-system';
 import { selectPic } from "../../../Controller/DocumentPicker";
 
 function EditProfileView({ navigation }) {
-  var route = useRoute();
+  const { user, setUser } = useAuth();
 
-  const [image, setImage] = useState({ uri: route.params.User.image } || require('../../../../assets/default-profile.png'));
+  const [image, setImage] = useState(
+    user?.image
+      ? { uri: user.image }
+      : require('../../../../assets/default-profile.png')
+  );
 
-  const openEdit = new OpenEditableInfoCommand(route.params.User);
-
-  /*const pickImage = async () => {
-    // No permissions request is necessary for launching the image library, might be different for Android
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images', 'videos'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-
-    console.log("Result cancelled: ", result.canceled);
-
-    if (!result.canceled) {
-      const imageUri = result.assets[0].uri;
-      console.log('Image URI:', imageUri);
-      const fileName = imageUri.split('/').pop();
-      console.log('File Name:', fileName);
-      const newPath = `${FileSystem.documentDirectory}${fileName}`;
-      console.log('New Path:', newPath);
-  
-      try {
-        await FileSystem.moveAsync({
-          from: imageUri,
-          to: newPath,
-        });
-        setImage({ uri: newPath });
-
-        // Log current route params user image
-        console.log('Current route params user image:', route.params.User.image);
-
-        // Profile pic can appear elsewhere
-        route.params.User.image = { uri: newPath };
-        console.log('New route params user image:', route.params.User.image);
-
-      } catch (error) {
-        console.error('Error saving image:', error);
-      }
-    }
-  };*/
+  const openEdit = new OpenEditableInfoCommand(user);
 
   return (
     <SafeArea>
@@ -85,12 +51,14 @@ function EditProfileView({ navigation }) {
             // Open the photos app picker
             let file = await selectPic(true);
 
-            // Update the image state and route params
+            // Update the image state
             if (file.url) {
-              setImage({ uri: file.url });
-              route.params.User.image = { uri: file.url };
-              console.log('New route params user image:', route.params.User.image);
-              navigation.navigate("Profile", { updatedImage: { uri: file.url } }); // Pass updated image URL back to ProfileView
+              const newImage = file.url;
+              setImage({ uri: newImage });
+              setUser(prev => ({
+                ...prev,
+                image: newImage
+              }));
             }
 
             // Output the file
@@ -120,7 +88,7 @@ function EditProfileView({ navigation }) {
             }}
           >
             <Text style={styles.editableInfoStyle}>
-              {route.params.User.userName}
+              {user.userName}
             </Text>
           </TouchableOpacity>
         </View>
@@ -145,7 +113,7 @@ function EditProfileView({ navigation }) {
             }}
           >
             <Text style={styles.editableInfoStyle}>
-              {route.params.User.username || route.params.User.userUserName}
+              {user.username || user.userUserName}
             </Text>
           </TouchableOpacity>
         </View>

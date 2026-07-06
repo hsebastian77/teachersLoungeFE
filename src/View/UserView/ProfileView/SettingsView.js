@@ -1,37 +1,44 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { useAuth } from "../../../context/AuthContext";
+
 import OpenEditProfileCommand from "../../../Controller/OpenEditProfileCommand";
 import LogOutCommand from "../../../Controller/LogOutCommand";
-import SafeArea from "../../SafeArea";
 import DeleteAccountCommand from "../../../Controller/DeleteAccountCommand";
 
-function SettingsView({ route }) {
-  const navigation = useNavigation();
-  const user = route.params.User;
+import SafeArea from "../../SafeArea";
 
-  const a = new OpenEditProfileCommand(user);
-  const LogCommand = new LogOutCommand();
-  const DelCommand = new DeleteAccountCommand();
+function SettingsView() {
+  const navigation = useNavigation();
+  const { user } = useAuth();
+
+  const editProfileCommand = new OpenEditProfileCommand(user);
+  const logOutCommand = new LogOutCommand();
+  const deleteAccountCommand = new DeleteAccountCommand();
 
   return (
     <SafeArea>
       <View style={styles.container}>
         <TouchableOpacity
           style={styles.button}
-          onPress={() => a.OpenEditProfile({ navigation })}
+          onPress={() => editProfileCommand.OpenEditProfile({ navigation })}
         >
           <Text style={styles.buttonText}>Edit Profile</Text>
         </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.button}
-          onPress={() => LogCommand.LogOut({ navigation })}
+          onPress={() => logOutCommand.LogOut({ navigation })}
         >
           <Text style={styles.buttonText}>Log Out</Text>
         </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.button}
-          onPress={() => DelCommand.DeleteAccount({ navigation, user })}
+          onPress={() =>
+            deleteAccountCommand.DeleteAccount({ navigation, user })
+          }
         >
           <Text style={styles.buttonTextRed}>Delete Account</Text>
         </TouchableOpacity>
@@ -53,15 +60,15 @@ const styles = StyleSheet.create({
     width: "60%",
     alignItems: "center",
     borderRadius: 10,
-    backgroundColor: "#e7ecfe"
+    backgroundColor: "#e7ecfe",
   },
   buttonText: {
     fontSize: 18,
   },
   buttonTextRed: {
     fontSize: 18,
-    color: "red"
-  }
+    color: "red",
+  },
 });
 
 export default SettingsView;

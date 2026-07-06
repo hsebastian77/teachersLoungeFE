@@ -1,25 +1,37 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { StyleSheet, View, TouchableOpacity, Text } from "react-native";
 import { TextInput } from "react-native-paper";
-import { useRoute } from "@react-navigation/native";
 import { sendMessage } from "../../../Controller/DirectMessagesManager";
+import { useAuth } from "../../../context/AuthContext";
 
 function TextBox({ navigation, details }) {
-  const route = useRoute();
+  const { user } = useAuth();
   const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
 
   const sendMessageHandler = async () => {
+    if (message.trim().length === 0 || sending) return;
+
     try {
+      setSending(true);
+
       const result = await sendMessage(
         details.conversationId,
-        message,
-        details.User.userUserName
+        message.trim(),
+        user.userUserName
       );
+
       if (result) {
-        navigation.navigate("Conversation", details);
+        setMessage(""); // clear only after success
+
+        if (details?.onMessageSent) {
+          details.onMessageSent();
+        }
       }
     } catch (error) {
-      console.log(error);
+      console.log("Send message error:", error);
+    } finally {
+      setSending(false);
     }
   };
 
@@ -35,15 +47,15 @@ function TextBox({ navigation, details }) {
         value={message}
         onChangeText={setMessage}
       />
+
       <TouchableOpacity
         style={styles.sendButton}
-        onPress={async () => {
-          if (message.trim().length === 0) return;
-          setMessage("");
-          await sendMessageHandler();
-        }}
+        onPress={sendMessageHandler}
+        disabled={sending}
       >
-        <Text style={styles.sendText}>Send</Text>
+        <Text style={styles.sendText}>
+          {sending ? "..." : "Send"}
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -69,8 +81,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 20,
     justifyContent: "center",
-    alignItems: "center", 
-    height: 40, 
+    alignItems: "center",
+    height: 40,
   },
   sendText: {
     color: "#fff",
@@ -78,6 +90,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
-
 
 export default TextBox;

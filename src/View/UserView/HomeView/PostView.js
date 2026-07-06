@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useAuth } from "../../../context/AuthContext";
 import {
   StyleSheet,
   Text,
@@ -17,11 +18,12 @@ import SafeArea from "../../SafeArea";
 import { likePost } from "../../../Controller/LikePostCommand";
 import { unlikePost } from "../../../Controller/UnlikePostCommand";
 import { checkLikePost } from "../../../Controller/CheckLikedPostCommand";
-import { getPostLikes } from "../../../Controller/GetPostLikesCommand";
 import { deletePost } from "../../../Controller/PostManager";
 import { useFocusEffect } from '@react-navigation/native';
 
 function PostView({ route, navigation }) {
+  const { user } = useAuth();
+  
   const [post, setPost] = useState(route.params?.post);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
@@ -32,34 +34,37 @@ function PostView({ route, navigation }) {
   let likeFilledImg = require("../../../../assets/like_filled.png");
   let commentImg = require("../../../../assets/comment.png");
 
+  if (!user || !post) return null;
+
   useEffect(() => {
-    if (post?.id) {
-      getCommentsByPostId(post.id, route.params.User.userUserName).then((commentsData) => setComments(commentsData));
+    if (post?.id && user?.userUserName) {
+      getCommentsByPostId(post.id, user.userUserName).then(setComments);
 
       async function fetchLikeData() {
         try {
-          const liked = await checkLikePost(post, route.params.User.userUserName);
+          const liked = await checkLikePost(post, user.userUserName);
           setIsLiked(liked);
         } catch (error) {
           console.error("Error fetching like data:", error);
         }
       }
+
       fetchLikeData();
     }
-  }, []);
+  }, [post, user]);
 
   const handleLikeToggle = async () => {
     try {
       let updatedLikes = Number(likes);
 
       if (isLiked) {
-        const unlikeSuccess = await unlikePost(post, route.params.User.userUserName);
+        const unlikeSuccess = await unlikePost(post, user.userUserName);
         if (unlikeSuccess) {
           setIsLiked(false);
           updatedLikes -= 1;
         }
       } else {
-        const likeSuccess = await likePost(post, route.params.User.userUserName);
+        const likeSuccess = await likePost(post, user.userUserName);
         if (likeSuccess) {
           setIsLiked(true);
           updatedLikes += 1;
@@ -84,7 +89,7 @@ function PostView({ route, navigation }) {
 
   const handleAddComment = async () => {
     if (newComment.trim()) {
-      await addComment(newComment, route.params.User.userUserName, null, post.id);
+      await addComment(newComment, user.userUserName, null, post.id);
       setNewComment("");
       getCommentsByPostId(post.id).then((commentsData) => setComments(commentsData));
     }
@@ -102,7 +107,7 @@ function PostView({ route, navigation }) {
   return (
     <SafeArea>
       <ScrollView style={styles.container}>
-      {(post.user === route.params.User.userUserName || route.params.User.userRole === "Admin") && (
+      {(post.user === user.userUserName || user.userRole === "Admin") && (
   <TouchableOpacity onPress={handleDeletePost} style={styles.deletePostButton}>
     <Text>{"Delete Post"}</Text>
   </TouchableOpacity>

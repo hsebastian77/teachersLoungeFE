@@ -1,10 +1,11 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useAuth } from "../context/AuthContext";
-import UserView from "../View/UserView";
+
 import SignInView from "../View/SignInView";
 import RegisterView from "../View/RegisterView";
-import PostView from "../View/HomeView/PostView";
+import PostView from "../View/UserView/HomeView/PostView";
+import UserView from "../View/UserView/UserView";
 
 const Stack = createNativeStackNavigator();
 

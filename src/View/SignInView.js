@@ -1,8 +1,6 @@
 import { React, useEffect, useRef, useState } from "react";
 import { Text, View, TouchableOpacity, Animated, Image, KeyboardAvoidingView, Platform, Linking, Alert, Modal } from "react-native";
 import { TextInput } from "react-native-paper";
-//import LogInCommand from "../Controller/LogInCommand";
-import { login } from "../Controller/LogInCommand";
 import App_StyleSheet from "../Styles/App_StyleSheet";
 import { FontAwesome } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
@@ -10,6 +8,7 @@ import * as AuthSession from 'expo-auth-session';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { handleGoogleLogin, handleLinkedInLogin, handleAppleLogin } from '../Controller/SocialLoginCommand';
 import { WebView } from 'react-native-webview';
+import { useAuth } from "../context/AuthContext";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -35,6 +34,7 @@ const LINKEDIN_CLIENT_ID = '77bw10d90022pu';
 const LINKEDIN_REDIRECT_URI = 'https://omegaeducationaltechsolutions.com/linkedin-redirect';
 
 function SignInView({ navigation }) {
+  const { login: authLogin } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
@@ -220,10 +220,15 @@ function SignInView({ navigation }) {
             async () => {
               setAuthLoading(true);
               setAuthError("");
-              const result = await login({ navigation }, email, password);
-              if (!result?.ok) {
+
+              const result = await login(email, password);
+
+              if (result?.ok) {
+                authLogin(result.user);
+              } else {
                 setAuthError(result?.message || "Unable to sign in.");
               }
+
               setAuthLoading(false);
             }
           }

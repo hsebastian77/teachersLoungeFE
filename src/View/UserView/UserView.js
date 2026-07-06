@@ -15,7 +15,7 @@ export default function UserView() {
     <Tab.Navigator
       initialRouteName="Home"
       screenOptions={{
-        headerShown: false, // 🔥 let inner stacks control headers
+        headerShown: false,
         tabBarActiveBackgroundColor: "#6382E8",
         tabBarInactiveBackgroundColor: "#6382E8",
         tabBarActiveTintColor: "#FFFFFF",
