@@ -79,6 +79,13 @@ const App_StyleSheet = StyleSheet.create({
     textAlign: 'center',
     fontSize: 14,
   },
+  authStatusText: {
+    color: '#2D6A4F',
+    marginTop: 6,
+    marginBottom: 2,
+    textAlign: 'center',
+    fontSize: 14,
+  },
   fieldHelperText: {
     color: '#666',
     marginTop: 4,

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import App_StyleSheet from '../Styles/App_StyleSheet';
 import { apiUrl, sendOtpRoute, verifyOtpRoute } from '@env';
 import * as SecureStore from 'expo-secure-store';
@@ -28,6 +28,65 @@ const getFullAuthToken = (data) => {
   return null;
 };
 
+const shouldLockOtpAccess = (response, data) => {
+  return (
+    response.status === 423 ||
+    response.status === 429 ||
+    data?.locked === true ||
+    data?.blocked === true ||
+    data?.otpLocked === true ||
+    data?.tooManyAttempts === true ||
+    data?.remainingAttempts === 0
+  );
+};
+
+const getRetryAfterSeconds = (response, data) => {
+  const candidates = [
+    data?.retryAfterSeconds,
+    data?.retryAfter,
+    data?.lockoutSeconds,
+    data?.waitSeconds,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'number' && Number.isFinite(candidate) && candidate > 0) {
+      return candidate;
+    }
+
+    const parsed = Number(candidate);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+
+  const headerValue = response.headers.get('Retry-After');
+  const parsedHeader = Number(headerValue);
+  if (Number.isFinite(parsedHeader) && parsedHeader > 0) {
+    return parsedHeader;
+  }
+
+  return null;
+};
+
+const formatRetryMessage = (baseMessage, retryAfterSeconds) => {
+  if (!retryAfterSeconds) {
+    return baseMessage;
+  }
+
+  const minutes = Math.floor(retryAfterSeconds / 60);
+  const seconds = retryAfterSeconds % 60;
+
+  if (minutes > 0 && seconds > 0) {
+    return `${baseMessage} Try again in ${minutes}m ${seconds}s.`;
+  }
+
+  if (minutes > 0) {
+    return `${baseMessage} Try again in ${minutes}m.`;
+  }
+
+  return `${baseMessage} Try again in ${seconds}s.`;
+};
+
 function TwoFactorAuthView({ navigation, route }) {
   const { User, email, fromRegistration = false, registrationData = {} } = route.params || {};
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -35,6 +94,9 @@ function TwoFactorAuthView({ navigation, route }) {
   const [canResend, setCanResend] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [otpLocked, setOtpLocked] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const inputRefs = useRef([]);
 
   useEffect(() => {
@@ -58,11 +120,16 @@ function TwoFactorAuthView({ navigation, route }) {
 
   const sendOTP = async () => {
     if (!email) {
-      Alert.alert('Error', 'Missing email address for verification.');
+      setErrorMessage('Missing email address for verification.');
+      return;
+    }
+
+    if (otpLocked) {
       return;
     }
 
     setIsSending(true);
+    setErrorMessage('');
     try {
       const storedToken = await SecureStore.getItemAsync("token");
       const mfaToken = getMfaToken(storedToken);
@@ -82,22 +149,33 @@ function TwoFactorAuthView({ navigation, route }) {
 
       const data = await safeJson(response);
       if (response.status === 200) {
-        Alert.alert('Success', 'Verification code sent to your email');
+        setStatusMessage('');
       } else {
-        Alert.alert('Error', data.message || 'Failed to send verification code');
+        const retryAfterSeconds = getRetryAfterSeconds(response, data);
+        const message = formatRetryMessage(
+          data.message || 'Failed to send verification code',
+          retryAfterSeconds
+        );
+        if (shouldLockOtpAccess(response, data)) {
+          setOtpLocked(true);
+          setCanResend(false);
+          setStatusMessage('');
+        }
+        setErrorMessage(message);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to send verification code');
+      setErrorMessage('Failed to send verification code');
     } finally {
       setIsSending(false);
     }
   };
 
   const handleResendOTP = async () => {
-    if (!canResend) return;
+    if (!canResend || otpLocked) return;
     
     setCanResend(false);
     setResendTimer(60);
+    setStatusMessage('');
     await sendOTP();
     
     // Restart timer
@@ -114,9 +192,14 @@ function TwoFactorAuthView({ navigation, route }) {
   };
 
   const handleOtpChange = (value, index) => {
+    if (otpLocked) {
+      return;
+    }
+
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
+    setErrorMessage('');
 
     // Auto-focus next input
     if (value && index < 5) {
@@ -140,17 +223,22 @@ function TwoFactorAuthView({ navigation, route }) {
 
   const verifyOTP = async (otpCode) => {
     if (!email) {
-      Alert.alert('Error', 'Missing email address for verification.');
+      setErrorMessage('Missing email address for verification.');
+      return;
+    }
+
+    if (otpLocked) {
       return;
     }
 
     const normalizedOtp = (otpCode || otp.join('')).trim();
     if (normalizedOtp.length !== 6) {
-      Alert.alert('Error', 'Please enter the full 6-digit code.');
+      setErrorMessage('Please enter the full 6-digit code.');
       return;
     }
 
     setIsVerifying(true);
+    setErrorMessage('');
     try {
       const storedToken = await SecureStore.getItemAsync("token");
       const mfaToken = getMfaToken(storedToken);
@@ -181,24 +269,33 @@ function TwoFactorAuthView({ navigation, route }) {
         if (fullToken) {
           await SecureStore.setItemAsync("token", fullToken);
         } else {
-          Alert.alert('Error', 'OTP verified but no final auth token was returned.');
+          setErrorMessage('OTP verified but no final auth token was returned.');
           return;
         }
-        
-        Alert.alert('Success', 'Verification successful!');
+
         if (fromRegistration || !User) {
           navigation.replace('Login');
         } else {
           navigation.replace("User", { User });
         }
       } else {
-        Alert.alert('Error', data.message || `Invalid verification code (status ${response.status})`);
+        const retryAfterSeconds = getRetryAfterSeconds(response, data);
+        const message = formatRetryMessage(
+          data.message || `Invalid verification code (status ${response.status})`,
+          retryAfterSeconds
+        );
+        if (shouldLockOtpAccess(response, data)) {
+          setOtpLocked(true);
+          setCanResend(false);
+          setStatusMessage('');
+        }
+        setErrorMessage(message);
         // Clear OTP inputs
         setOtp(['', '', '', '', '', '']);
         inputRefs.current[0]?.focus();
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to verify code');
+      setErrorMessage('Failed to verify code');
     } finally {
       setIsVerifying(false);
     }
@@ -217,6 +314,9 @@ function TwoFactorAuthView({ navigation, route }) {
         <Text style={App_StyleSheet.fieldHelperText}>
           If you do not see the code, check your spam folder or use Resend Code after the timer ends.
         </Text>
+
+        {statusMessage ? <Text style={App_StyleSheet.authStatusText}>{statusMessage}</Text> : null}
+        {errorMessage ? <Text style={App_StyleSheet.authErrorText}>{errorMessage}</Text> : null}
         
         <View style={App_StyleSheet.otpContainer}>
           {otp.map((digit, index) => (
@@ -231,6 +331,7 @@ function TwoFactorAuthView({ navigation, route }) {
               maxLength={1}
               selectTextOnFocus
               textAlign="center"
+              editable={!otpLocked && !isVerifying}
             />
           ))}
         </View>
@@ -238,14 +339,14 @@ function TwoFactorAuthView({ navigation, route }) {
         <TouchableOpacity
           style={App_StyleSheet.default_button}
           onPress={() => verifyOTP()}
-          disabled={isVerifying}
+          disabled={isVerifying || otpLocked}
         >
-          <Text style={App_StyleSheet.text}>{isVerifying ? 'Verifying...' : 'Verify'}</Text>
+          <Text style={App_StyleSheet.text}>{otpLocked ? 'Verification Locked' : isVerifying ? 'Verifying...' : 'Verify'}</Text>
         </TouchableOpacity>
 
         <View style={App_StyleSheet.resendContainer}>
           {canResend ? (
-            <TouchableOpacity onPress={handleResendOTP} disabled={isSending || isVerifying}>
+            <TouchableOpacity onPress={handleResendOTP} disabled={isSending || isVerifying || otpLocked}>
               <Text style={App_StyleSheet.resendText}>{isSending ? 'Sending...' : 'Resend Code'}</Text>
             </TouchableOpacity>
           ) : (
