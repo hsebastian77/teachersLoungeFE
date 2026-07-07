@@ -18,6 +18,16 @@ const safeJson = async (response) => {
   }
 };
 
+const getMfaToken = (value) => {
+  return typeof value === 'string' && value ? value : null;
+};
+
+const getFullAuthToken = (data) => {
+  if (typeof data?.token === 'string' && data.token) return data.token;
+  if (typeof data?.accessToken === 'string' && data.accessToken) return data.accessToken;
+  return null;
+};
+
 function TwoFactorAuthView({ navigation, route }) {
   const { User, email, fromRegistration = false, registrationData = {} } = route.params || {};
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -54,14 +64,20 @@ function TwoFactorAuthView({ navigation, route }) {
 
     setIsSending(true);
     try {
-      const token = await SecureStore.getItemAsync("token");
+      const storedToken = await SecureStore.getItemAsync("token");
+      const mfaToken = getMfaToken(storedToken);
+
+      const bodyPayload = mfaToken
+        ? { email, mfaToken }
+        : { email };
+
       const response = await fetch(`${apiUrl}${SEND_OTP_ROUTE}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(!mfaToken && storedToken ? { Authorization: `Bearer ${storedToken}` } : {}),
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(bodyPayload),
       });
 
       const data = await safeJson(response);
@@ -136,27 +152,37 @@ function TwoFactorAuthView({ navigation, route }) {
 
     setIsVerifying(true);
     try {
-      const token = await SecureStore.getItemAsync("token");
+      const storedToken = await SecureStore.getItemAsync("token");
+      const mfaToken = getMfaToken(storedToken);
+
+      const requestBody = mfaToken
+        ? { otp: normalizedOtp, mfaToken }
+        : {
+            email,
+            otp: normalizedOtp,
+            username: registrationData.username,
+            firstName: registrationData.firstName,
+            lastName: registrationData.lastName,
+          };
+
       const response = await fetch(`${apiUrl}${VERIFY_OTP_ROUTE}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(!mfaToken && storedToken ? { Authorization: `Bearer ${storedToken}` } : {}),
         },
-        body: JSON.stringify({
-          email,
-          otp: normalizedOtp,
-          username: registrationData.username,
-          firstName: registrationData.firstName,
-          lastName: registrationData.lastName,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await safeJson(response);
       if (response.status === 200) {
-        // Update token with 2FA verified token
-        if (data.token) {
-          await SecureStore.setItemAsync("token", data.token);
+        // Store only the final authenticated token after OTP verification.
+        const fullToken = getFullAuthToken(data);
+        if (fullToken) {
+          await SecureStore.setItemAsync("token", fullToken);
+        } else {
+          Alert.alert('Error', 'OTP verified but no final auth token was returned.');
+          return;
         }
         
         Alert.alert('Success', 'Verification successful!');

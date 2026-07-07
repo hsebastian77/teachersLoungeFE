@@ -48,7 +48,7 @@ async function register({ navigation }, fName, lName, username, email, password)
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ firstName: fName, lastName: lName, username: username, email: email, password: password, role: "Approved" })
+      body: JSON.stringify({ firstName: fName, lastName: lName, username: username, email: email, password: password })
     };
     try {
       const response = await fetch(urlRegister, reqOptions);

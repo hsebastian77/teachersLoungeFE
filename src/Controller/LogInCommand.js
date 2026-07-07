@@ -3,6 +3,19 @@ import User from "../Model/User";
 import * as SecureStore from 'expo-secure-store';
 import { apiUrl, loginRoute } from "@env";
 
+const getFullAuthToken = (data) => {
+  if (typeof data?.token === "string" && data.token) return data.token;
+  if (typeof data?.accessToken === "string" && data.accessToken) return data.accessToken;
+  return null;
+};
+
+const getMfaToken = (data) => {
+  if (typeof data?.mfaToken === "string" && data.mfaToken) return data.mfaToken;
+  if (typeof data?.preAuthToken === "string" && data.preAuthToken) return data.preAuthToken;
+  if (typeof data?.challengeToken === "string" && data.challengeToken) return data.challengeToken;
+  return null;
+};
+
 const safeParseJson = async (response) => {
   const text = await response.text();
   if (!text) return {};
@@ -56,8 +69,8 @@ async function login({ navigation }, identifier, password) {
           );
 
           try {
-            // Store token in secure store
-            await SecureStore.setItemAsync("token", data.token);
+            const fullToken = getFullAuthToken(data);
+            const mfaToken = getMfaToken(data);
 
             // Store username in secure store
             await SecureStore.setItemAsync("username", data.user.Email || identifier);
@@ -74,18 +87,28 @@ async function login({ navigation }, identifier, password) {
                 emailVerified === false ||
                 data?.requiresEmailVerification === true ||
                 data?.requiresVerification === true ||
+                data?.status === "MFA_REQUIRED" ||
+                data?.requiresMFA === true ||
+                data?.mfaRequired === true ||
                 (typeof data.requires2FA === "boolean" ? data.requires2FA : true);
 
-              // Check if this is the admin account which should bypass 2FA
-              if ((data.user.Email || identifier).toLowerCase() === "admin@admin.com") {
-                // Admin account bypasses 2FA and goes directly to main app
-                navigation.navigate("User", { User: user });
-              } else {
-                if (requires2FA) {
+              if (requires2FA) {
+                if (mfaToken) {
+                  await SecureStore.setItemAsync("token", mfaToken);
+                  navigation.navigate("TwoFactorAuth", { User: user, email: data.user.Email || identifier });
+                } else if (fullToken) {
+                  // Backward compatibility with older backend behavior.
+                  await SecureStore.setItemAsync("token", fullToken);
                   navigation.navigate("TwoFactorAuth", { User: user, email: data.user.Email || identifier });
                 } else {
-                  navigation.navigate("User", { User: user });
+                  return { ok: false, message: "MFA is required but no challenge token was provided by the server." };
                 }
+              } else {
+                if (!fullToken) {
+                  return { ok: false, message: "Login succeeded but no session token was provided by the server." };
+                }
+                await SecureStore.setItemAsync("token", fullToken);
+                navigation.navigate("User", { User: user });
               }
               return { ok: true };
             } else {

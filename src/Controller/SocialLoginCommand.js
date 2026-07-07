@@ -3,6 +3,19 @@ import * as SecureStore from 'expo-secure-store';
 import User from '../Model/User';
 import { Alert } from 'react-native';
 
+const getFullAuthToken = (data) => {
+  if (typeof data?.token === 'string' && data.token) return data.token;
+  if (typeof data?.accessToken === 'string' && data.accessToken) return data.accessToken;
+  return null;
+};
+
+const getMfaToken = (data) => {
+  if (typeof data?.mfaToken === 'string' && data.mfaToken) return data.mfaToken;
+  if (typeof data?.preAuthToken === 'string' && data.preAuthToken) return data.preAuthToken;
+  if (typeof data?.challengeToken === 'string' && data.challengeToken) return data.challengeToken;
+  return null;
+};
+
 // Handles Google login authentication
 export const handleGoogleLogin = async (navigation, authorizationCode, redirectUri, codeVerifier, clientId) => {
   try {
@@ -129,21 +142,41 @@ const handleSocialLoginSuccess = async (navigation, data) => {
     );
 
     try {
-      // Store token
-      await SecureStore.setItemAsync("token", data.token);
-      await SecureStore.setItemAsync("username", data.user.Email);
+      const email = data.user.Email || "";
+      const fullToken = getFullAuthToken(data);
+      const mfaToken = getMfaToken(data);
+
+      await SecureStore.setItemAsync("username", String(email));
 
       if (user.userRole == "Approved" || user.userRole == "Admin") {
-        // Check if this is the admin account which should bypass 2FA
-        if (data.user.Email.toLowerCase() === "admin@admin.com") {
-          // Admin account bypasses 2FA and goes directly to main app
-          navigation.navigate("User", { User: user });
-        } else {
-          const requires2FA = typeof data.requires2FA === 'boolean' ? data.requires2FA : true;
-          if (requires2FA) {
-            navigation.navigate("TwoFactorAuth", { User: user, email: data.user.Email });
+        const backendRequiresMfa =
+          data?.status === "MFA_REQUIRED" ||
+          data?.requiresMFA === true ||
+          data?.mfaRequired === true ||
+          data?.requires2FA === true;
+
+        const requires2FA = typeof data.requires2FA === 'boolean'
+          ? data.requires2FA
+          : backendRequiresMfa;
+
+        if (requires2FA) {
+          // For MFA flow store only the short-lived pre-auth token when present.
+          if (mfaToken) {
+            await SecureStore.setItemAsync("token", mfaToken);
+            navigation.navigate("TwoFactorAuth", { User: user, email });
+          } else if (fullToken) {
+            // Backward compatibility with older backend behavior.
+            await SecureStore.setItemAsync("token", fullToken);
+            navigation.navigate("TwoFactorAuth", { User: user, email });
           } else {
+            Alert.alert("Login Error", "MFA is required but no challenge token was provided by the server.");
+          }
+        } else {
+          if (fullToken) {
+            await SecureStore.setItemAsync("token", fullToken);
             navigation.navigate("User", { User: user });
+          } else {
+            Alert.alert("Login Error", "Login succeeded but no session token was provided by the server.");
           }
         }
       } else {
