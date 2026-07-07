@@ -13,8 +13,9 @@ import { likePost } from "../../../Controller/LikePostCommand";
 import { unlikePost } from "../../../Controller/UnlikePostCommand";
 import { getPostLikes } from "../../../Controller/GetPostLikesCommand";
 import { checkLikePost } from "../../../Controller/CheckLikedPostCommand";
+import { deletePost } from "../../../Controller/PostManager";
 
-function PostComponentView({ navigation, post, User }) {
+function PostComponentView({ navigation, post, User, onDeleted }) {
   const route = useRoute();
   const [isLiked, setIsLiked] = useState(false);
   const [likes, setLikes] = useState(Number(post.likes));
@@ -96,6 +97,31 @@ function PostComponentView({ navigation, post, User }) {
     }
   };
 
+  const canDelete =
+    User &&
+    (User.userRole === "Admin" ||
+      post.user === User.userUserName ||
+      post.user === User.userName ||
+      post.user === User.username);
+
+  const handleDeletePost = () => {
+    if (!canDelete) return;
+
+    Alert.alert("Delete Post", "Are you sure you want to delete this post?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          await deletePost(post.id);
+          if (typeof onDeleted === "function") {
+            onDeleted(post.id);
+          }
+        },
+      },
+    ]);
+  };
+
 
   return (
     <TouchableOpacity
@@ -111,6 +137,11 @@ function PostComponentView({ navigation, post, User }) {
       <Text style={styles.title}>{post.title || "no title"}</Text>
       {post.createdAt && (
         <Text style={styles.timestamp}>{formatPostTime(post.createdAt)}</Text>
+      )}
+      {canDelete && (
+        <TouchableOpacity style={styles.deleteButton} onPress={handleDeletePost}>
+          <Text style={styles.deleteButtonText}>Delete</Text>
+        </TouchableOpacity>
       )}
         <Text style={styles.content}>{post.postContent}</Text>
 
@@ -165,6 +196,19 @@ const styles = StyleSheet.create({
     color: "#666666",
     fontSize: 12,
     marginBottom: 10,
+  },
+  deleteButton: {
+    alignSelf: "flex-start",
+    backgroundColor: "#FEE2E2",
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+  },
+  deleteButtonText: {
+    color: "#B3261E",
+    fontWeight: "600",
+    fontSize: 12,
   },
   content: {
     color: "black",

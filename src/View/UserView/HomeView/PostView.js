@@ -116,10 +116,17 @@ function PostView({ route, navigation }) {
     }
   };
 
+  const canDelete =
+    route.params.User &&
+    (route.params.User.userRole === "Admin" ||
+      post.user === route.params.User.userUserName ||
+      post.user === route.params.User.userName ||
+      post.user === route.params.User.username);
+
   return (
     <SafeArea>
       <ScrollView style={styles.container}>
-      {(post.user === route.params.User.userUserName || route.params.User.userRole === "Admin") && (
+      {canDelete && (
   <TouchableOpacity onPress={handleDeletePost} style={styles.deletePostButton}>
     <Text>{"Delete Post"}</Text>
   </TouchableOpacity>
