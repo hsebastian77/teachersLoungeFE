@@ -1,9 +1,32 @@
 import React from "react";
-import { StyleSheet, Text, View, Image } from "react-native";
-import { Alert } from "react-native";
+import { StyleSheet, Text, View, Image, TouchableOpacity } from "react-native";
+import { deleteComment } from "../../../Controller/PostManager";
 
-function CommentView({ comment }) {
+function CommentView({ comment, User, onDeleted }) {
   const likeImg = require("../../../../assets/like.png");
+
+  const normalizeValue = (value) =>
+    typeof value === "string" ? value.trim().toLowerCase() : "";
+
+  const isAdmin = normalizeValue(User?.userRole) === "admin";
+  const commentOwner = normalizeValue(comment?.userName);
+  const userIdentifiers = [
+    normalizeValue(User?.userUserName),
+    normalizeValue(User?.username),
+  ].filter(Boolean);
+  const isOwner = commentOwner ? userIdentifiers.includes(commentOwner) : false;
+
+  const canDelete = Boolean(User) && Boolean(comment?.id) && (isAdmin || isOwner);
+
+  const handleDeleteComment = () => {
+    if (!canDelete) return;
+
+    deleteComment(comment.id).then((wasDeleted) => {
+      if (wasDeleted && typeof onDeleted === "function") {
+        onDeleted(comment.id);
+      }
+    });
+  };
 
   return (
     <View style={styles.comment}>
@@ -14,6 +37,12 @@ function CommentView({ comment }) {
         <View style={styles.footerSection}>
           <Text>{comment.likes ? comment.likes : 0} {"likes"}</Text>
         </View>
+
+        {canDelete && (
+          <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteComment}>
+            <Text style={styles.deleteButtonText}>Delete</Text>
+          </TouchableOpacity>
+        )}
 
         <Text style={styles.commentUserName}>{comment.userName}</Text>
       </View>
@@ -54,6 +83,18 @@ const styles = StyleSheet.create({
     width: 25,
     height: 25,
     marginHorizontal: 5,
+  },
+  deleteButton: {
+    backgroundColor: "#FEE2E2",
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    marginHorizontal: 8,
+  },
+  deleteButtonText: {
+    color: "#B3261E",
+    fontWeight: "600",
+    fontSize: 12,
   },
   commentUserName: {
     marginLeft: "auto",

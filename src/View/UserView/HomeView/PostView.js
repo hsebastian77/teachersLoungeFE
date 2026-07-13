@@ -103,25 +103,33 @@ function PostView({ route, navigation }) {
     if (newComment.trim()) {
       await addComment(newComment, route.params.User.userUserName, null, post.id);
       setNewComment("");
-      getCommentsByPostId(post.id).then((commentsData) => setComments(commentsData));
+      getCommentsByPostId(post.id, route.params.User.userUserName).then((commentsData) => setComments(commentsData));
     }
   };
 
   const handleDeletePost = async () => {
     try {
-      await deletePost(post.id, post.fileUrl);
-      navigation.goBack();
+      const wasDeleted = await deletePost(post.id, post.fileUrl);
+      if (wasDeleted) {
+        navigation.goBack();
+      }
     } catch (error) {
       console.error("Error deleting post:", error);
     }
   };
 
-  const canDelete =
-    route.params.User &&
-    (route.params.User.userRole === "Admin" ||
-      post.user === route.params.User.userUserName ||
-      post.user === route.params.User.userName ||
-      post.user === route.params.User.username);
+  const normalizeValue = (value) =>
+    typeof value === "string" ? value.trim().toLowerCase() : "";
+
+  const isAdmin = normalizeValue(route.params.User?.userRole) === "admin";
+  const postOwner = normalizeValue(post?.user);
+  const userIdentifiers = [
+    normalizeValue(route.params.User?.userUserName),
+    normalizeValue(route.params.User?.username),
+  ].filter(Boolean);
+  const isOwner = postOwner ? userIdentifiers.includes(postOwner) : false;
+
+  const canDelete = Boolean(route.params.User) && (isAdmin || isOwner);
 
   return (
     <SafeArea>
@@ -177,7 +185,13 @@ function PostView({ route, navigation }) {
               return (
                 <CommentView 
                   key={comment.id ? `comment-${comment.id}` : `comment-index-${index}`} 
-                  comment={comment} 
+                  comment={comment}
+                  User={route.params.User}
+                  onDeleted={(deletedCommentId) =>
+                    setComments((prevComments) =>
+                      prevComments.filter((c) => c.id !== deletedCommentId)
+                    )
+                  }
                 />
               );
             })

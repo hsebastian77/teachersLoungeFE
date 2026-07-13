@@ -247,6 +247,14 @@ function SignInView({ navigation }) {
           <Text style={App_StyleSheet.text}>{"Sign Up"}</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={App_StyleSheet.default_button}
+          onPress={() => navigation.navigate("ForgotPassword")}
+          disabled={authLoading}
+        >
+          <Text style={App_StyleSheet.text}>{"Forgot Password"}</Text>
+        </TouchableOpacity>
+
         {/* Divider */}
         <View style={App_StyleSheet.divider}>
           <View style={App_StyleSheet.dividerLine} />

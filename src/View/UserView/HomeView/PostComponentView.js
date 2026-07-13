@@ -97,29 +97,27 @@ function PostComponentView({ navigation, post, User, onDeleted }) {
     }
   };
 
-  const canDelete =
-    User &&
-    (User.userRole === "Admin" ||
-      post.user === User.userUserName ||
-      post.user === User.userName ||
-      post.user === User.username);
+  const normalizeValue = (value) =>
+    typeof value === "string" ? value.trim().toLowerCase() : "";
+
+  const isAdmin = normalizeValue(User?.userRole) === "admin";
+  const postOwner = normalizeValue(post?.user);
+  const userIdentifiers = [
+    normalizeValue(User?.userUserName),
+    normalizeValue(User?.username),
+  ].filter(Boolean);
+  const isOwner = postOwner ? userIdentifiers.includes(postOwner) : false;
+
+  const canDelete = Boolean(User) && (isAdmin || isOwner);
 
   const handleDeletePost = () => {
     if (!canDelete) return;
 
-    Alert.alert("Delete Post", "Are you sure you want to delete this post?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          await deletePost(post.id);
-          if (typeof onDeleted === "function") {
-            onDeleted(post.id);
-          }
-        },
-      },
-    ]);
+    deletePost(post.id).then((wasDeleted) => {
+      if (wasDeleted && typeof onDeleted === "function") {
+        onDeleted(post.id);
+      }
+    });
   };
 
 
