@@ -23,6 +23,28 @@ function PostComponentView({ navigation, post, User }) {
   let likeFilledImg = require("../../../../assets/like_filled.png");
   let commentImg = require("../../../../assets/comment.png");
 
+  const attachmentName = post.fileName || (() => {
+    try {
+      const urlWithoutQuery = post.fileUrl?.split("?")[0] || "";
+      return decodeURIComponent(urlWithoutQuery.split("/").pop()) || "Attachment";
+    } catch (error) {
+      return "Attachment";
+    }
+  })();
+
+  const isImageAttachment = Boolean(
+    post.fileUrl &&
+    (post.fileType?.toLowerCase().startsWith("image/") ||
+      /\.(png|jpe?g|gif|webp|bmp|heic|heif)$/i.test(attachmentName))
+  );
+
+  const openAttachment = (event) => {
+    event?.stopPropagation?.();
+    if (post.fileUrl) {
+      Linking.openURL(post.fileUrl);
+    }
+  };
+
 
   const formatPostTime = (createdAt) => {
     if (!createdAt) {
@@ -107,21 +129,38 @@ function PostComponentView({ navigation, post, User }) {
         });
       }}
     >
-      <View style={styles.text}>
-      <Text style={styles.title}>{post.title || "no title"}</Text>
-      {post.createdAt && (
-        <Text style={styles.timestamp}>{formatPostTime(post.createdAt)}</Text>
-      )}
-        <Text style={styles.content}>{post.postContent}</Text>
+      <View style={styles.postBody}>
+        <View style={styles.text}>
+          <Text style={styles.title}>{post.title || "no title"}</Text>
+          {post.createdAt && (
+            <Text style={styles.timestamp}>{formatPostTime(post.createdAt)}</Text>
+          )}
+          <Text style={styles.content}>{post.postContent}</Text>
+        </View>
 
-        {post.fileUrl && (
-          <Text
-            style={styles.linkText}
-            onPress={() => Linking.openURL(post.fileUrl)}
+        {post.fileUrl ? (
+          <TouchableOpacity
+            style={styles.attachmentContainer}
+            onPress={openAttachment}
+            accessibilityRole="button"
+            accessibilityLabel={`Open attachment ${attachmentName}`}
           >
-            {"Open Image File"}
-          </Text>
-        )}
+            {isImageAttachment ? (
+              <Image
+                style={styles.attachmentImage}
+                source={{ uri: post.fileUrl }}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={styles.filePreview}>
+                <Text style={styles.fileTypeLabel}>FILE</Text>
+                <Text style={styles.fileName} numberOfLines={1} ellipsizeMode="tail">
+                  {attachmentName}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       <View style={styles.footer}>
@@ -153,7 +192,47 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   text: {
+    flex: 1,
     padding: 20,
+    paddingRight: 10,
+  },
+  postBody: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  attachmentContainer: {
+    width: 96,
+    minHeight: 96,
+    marginRight: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attachmentImage: {
+    width: 88,
+    height: 88,
+    borderRadius: 8,
+    backgroundColor: "#E7ECFE",
+  },
+  filePreview: {
+    width: 92,
+    minHeight: 72,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: "#E7ECFE",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fileTypeLabel: {
+    color: "#6382E8",
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 5,
+  },
+  fileName: {
+    color: "#333333",
+    fontSize: 12,
+    textAlign: "center",
   },
   title: {
     color: "black",
@@ -169,11 +248,6 @@ const styles = StyleSheet.create({
   content: {
     color: "black",
     fontSize: 15,
-  },
-  linkText: {
-    color: "blue",
-    fontSize: 15,
-    marginTop: 10,
   },
   footer: {
     flexDirection: "row",

@@ -11,7 +11,6 @@ import { TextInput } from "react-native-paper";
 import SafeArea from "../../SafeArea.js";
 import CreatePost from "../../../Controller/CreatePostCommand.js";
 import { createCommunityPost } from "../../../Controller/CommunitiesManager.js";
-import UploadFileCommand from "../../../Controller/UploadFileCommand.js";
 import { selectDoc, selectPic } from "../../../Controller/DocumentPicker.js";
 import App_StyleSheet from "../../../Styles/App_StyleSheet.js";
 import { getUserCommunities } from "../../../Controller/CommunitiesManager.js";
@@ -26,6 +25,66 @@ function CreatePostView({ navigation }) {
   const [communities, setCommunities] = useState([]);
   const [selectedCommunityId, setSelectedCommunityId] = useState(null);
   const [selectedCommunityName, setSelectedCommunityName] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadingType, setUploadingType] = useState(null);
+
+  const handleAttachmentSelection = async (picker, type) => {
+    if (isUploading || isSubmitting) return;
+
+    setIsUploading(true);
+    setUploadingType(type);
+    try {
+      const selectedFile = await picker();
+      if (selectedFile?.url) {
+        setFile(selectedFile);
+      }
+    } finally {
+      setIsUploading(false);
+      setUploadingType(null);
+    }
+  };
+
+  const returnToPostList = () => {
+    navigation.reset({
+      index: 0,
+      routes: [
+        {
+          name: "Teacher's Lounge",
+          params: { User },
+        },
+      ],
+    });
+  };
+
+  const handleSubmit = async () => {
+    if (!User || isSubmitting || isUploading) {
+      if (!User) {
+        console.log("CreatePostView: User is missing");
+      }
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const created = selectedCommunityId && selectedCommunityId !== "None"
+        ? await createCommunityPost(
+            postTitle,
+            postContent,
+            file,
+            User,
+            selectedCommunityId
+          )
+        : await CreatePost(postTitle, postContent, file, User);
+
+      if (created) {
+        returnToPostList();
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   async function fetchCommunities() {
     const data = await getUserCommunities(route.params?.User?.userUserName);
@@ -100,41 +159,43 @@ function CreatePostView({ navigation }) {
             boxStyles={styles.selectBox}
           />
 
-          <TouchableOpacity
-            style={styles.smallButton}
-            onPress={async () => {
-              let file = await selectDoc();
-              setFile(file);
-            }}
-          >
-            <Text style={styles.smallButtonText}>
-              {file.url ? file.url : "No file uploaded"}
+          <View style={styles.attachmentButtons}>
+            <TouchableOpacity
+              style={[styles.smallButton, styles.attachmentButton]}
+              onPress={() => handleAttachmentSelection(selectDoc, "file")}
+              disabled={isUploading || isSubmitting}
+            >
+              <Text style={styles.smallButtonText}>
+                {uploadingType === "file" ? "Uploading..." : "Upload File"}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.smallButton, styles.attachmentButton]}
+              onPress={() => handleAttachmentSelection(() => selectPic(false), "image")}
+              disabled={isUploading || isSubmitting}
+            >
+              <Text style={styles.smallButtonText}>
+                {uploadingType === "image" ? "Uploading..." : "Upload Image"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {file.url ? (
+            <Text style={styles.selectedFileName} numberOfLines={1} ellipsizeMode="tail">
+              {file.name}
             </Text>
-          </TouchableOpacity>
+          ) : null}
 
           <View style={styles.buttonsContainer}>
             <TouchableOpacity
               style={App_StyleSheet.medium_button}
-              onPress={() => {
-                if (!User) {
-                  console.log("CreatePostView: User is missing");
-                  return;
-                } 
-                if (selectedCommunityId && selectedCommunityId !== "None") {
-                  createCommunityPost(
-                    { navigation },
-                    postTitle,
-                    postContent,
-                    file,
-                    User,
-                    selectedCommunityId
-                  );
-                } else {
-                  CreatePost({ navigation }, postTitle, postContent, file, User);
-                }
-              }}
+              onPress={handleSubmit}
+              disabled={isSubmitting || isUploading}
             >
-              <Text style={App_StyleSheet.text}>Submit</Text>
+              <Text style={App_StyleSheet.text}>
+                {isSubmitting ? "Submitting..." : "Submit"}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -187,10 +248,25 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+  },
+  attachmentButtons: {
+    flexDirection: "row",
+    marginHorizontal: -4,
+  },
+  attachmentButton: {
+    flex: 1,
+    marginHorizontal: 4,
   },
   smallButtonText: {
     color: "#4A90E2",
     fontSize: 14,
+  },
+  selectedFileName: {
+    color: "#555555",
+    fontSize: 13,
+    marginTop: -12,
+    marginBottom: 12,
   },
   buttonsContainer: {
     marginTop: 20,

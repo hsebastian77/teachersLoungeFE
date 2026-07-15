@@ -32,6 +32,21 @@ function PostView({ route, navigation }) {
   let likeFilledImg = require("../../../../assets/like_filled.png");
   let commentImg = require("../../../../assets/comment.png");
 
+  const attachmentName = post.fileName || (() => {
+    try {
+      const urlWithoutQuery = post.fileUrl?.split("?")[0] || "";
+      return decodeURIComponent(urlWithoutQuery.split("/").pop()) || "Attachment";
+    } catch (error) {
+      return "Attachment";
+    }
+  })();
+
+  const isImageAttachment = Boolean(
+    post.fileUrl &&
+    (post.fileType?.toLowerCase().startsWith("image/") ||
+      /\.(png|jpe?g|gif|webp|bmp|heic|heif)$/i.test(attachmentName))
+  );
+
   const formatPostTime = (createdAt) => {
     if (!createdAt) {
       return "";
@@ -121,7 +136,7 @@ function PostView({ route, navigation }) {
       <ScrollView style={styles.container}>
       {(post.user === route.params.User.userUserName || route.params.User.userRole === "Admin") && (
   <TouchableOpacity onPress={handleDeletePost} style={styles.deletePostButton}>
-    <Text>{"Delete Post"}</Text>
+    <Text style={styles.deletePostButtonText}>{"Delete Post"}</Text>
   </TouchableOpacity>
 )}
 
@@ -130,13 +145,21 @@ function PostView({ route, navigation }) {
             <Text style={styles.title}>{post.title || "no title"}</Text>
             {post.createdAt && (
               <Text style={styles.timestamp}>{formatPostTime(post.createdAt)}</Text>
-              )}
-            <Text style={styles.content}>{post.postContent}</Text>
-            {post.fileUrl && (
-              <Text style={styles.linkText} onPress={() => Linking.openURL(post.fileUrl)}>
-                {"Open Image File"}
-              </Text>
             )}
+            <Text style={styles.content}>{post.postContent}</Text>
+            {isImageAttachment ? (
+              <TouchableOpacity onPress={() => Linking.openURL(post.fileUrl)}>
+                <Image
+                  style={styles.postImage}
+                  source={{ uri: post.fileUrl }}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+            ) : post.fileUrl ? (
+              <Text style={styles.linkText} onPress={() => Linking.openURL(post.fileUrl)}>
+                {`Open attachment: ${attachmentName}`}
+              </Text>
+            ) : null}
           </View>
           <View style={styles.footer}>
             <View style={styles.footerSection}>
@@ -214,6 +237,13 @@ const styles = StyleSheet.create({
     color: "black",
     fontSize: 18,
   },
+  postImage: {
+    width: "100%",
+    height: 260,
+    marginTop: 15,
+    borderRadius: 10,
+    backgroundColor: "#F2F4FA",
+  },
   linkText: {
     color: "blue",
     fontSize: 15,
@@ -257,13 +287,17 @@ const styles = StyleSheet.create({
     marginLeft: 15,
   },
   deletePostButton: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#A94442",
     width: "90%",
     alignSelf: "center",
     padding: 10,
     borderRadius: 10,
     marginBottom: 15,
     alignItems: "center",
+  },
+  deletePostButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
   }
 });
 

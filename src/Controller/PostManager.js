@@ -46,7 +46,9 @@ async function getApprovedPosts(userEmail) {
           data[count].fileurl,
           data[count].communityname,
           data[count].commentscount,
-          data[count].createdat
+          data[count].createdat,
+          data[count].filedisplayname,
+          data[count].filetype
         )
       );
       count = count + 1;
@@ -84,7 +86,9 @@ async function getApprovedPostsByUser(username) {
           data[count].fileurl,
           data[count].communityname,
           data[count].commentscount,
-          data[count].createdat
+          data[count].createdat,
+          data[count].filedisplayname,
+          data[count].filetype
         )
       );
       count = count + 1;

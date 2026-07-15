@@ -45,7 +45,7 @@ class User {
   }*/
 
   createPost(content, fileUrl) {
-    newPost = new Post(
+    const newPost = new Post(
       null,
       this.userName,
       content,
