@@ -173,16 +173,13 @@ async function getCommunityPosts(communityID, userEmail) {
         new Post(
           data[count].postid,
           data[count].username || data[count].email,
-          data[count].title,
           data[count].content,
           data[count].likescount,
           [],
           data[count].fileurl,
           data[count].communityname,
           data[count].commentscount,
-          data[count].createdat,
-          data[count].filedisplayname,
-          data[count].filetype
+          data[count].createdat
         )
       );
       count = count + 1;
@@ -193,6 +190,7 @@ async function getCommunityPosts(communityID, userEmail) {
 
 
 async function createCommunityPost(
+  { navigation },
   title,
   content,
   file,
@@ -202,6 +200,7 @@ async function createCommunityPost(
   if (content != "") {
     let postUrl = apiUrl + createCommunityPostRoute;
     console.log(postUrl);
+    const attachment = file || {};
     const reqOptions = {
       method: "POST",
       headers: {
@@ -211,25 +210,23 @@ async function createCommunityPost(
       body: JSON.stringify({
         title: title,
         content: content,
-        fileUrl: file.url,
+        fileUrl: attachment.url || null,
         email: user.userUserName,
-        fileType: file.type,
-        fileDisplayName: file.name,
+        fileType: attachment.type || null,
+        fileDisplayName: attachment.name || null,
         communityId: communityId,
       }),
     }
     const response = await fetch(postUrl, reqOptions);
     const data = await response.json();
-    if (response.status != 200) {
+    if (!response.ok) {
       Alert.alert("Error", "Unable to create post");
-      return false;
     } else {
+      user.createPost(content, attachment.url || null);
       Alert.alert("Success", "Post created");
-      return true;
+      navigation.goBack();
     }
   }
-
-  return false;
 }
 
 export {

@@ -13,37 +13,17 @@ import { likePost } from "../../../Controller/LikePostCommand";
 import { unlikePost } from "../../../Controller/UnlikePostCommand";
 import { getPostLikes } from "../../../Controller/GetPostLikesCommand";
 import { checkLikePost } from "../../../Controller/CheckLikedPostCommand";
+import { deletePost } from "../../../Controller/PostManager";
 
-function PostComponentView({ navigation, post, User }) {
+function PostComponentView({ navigation, post, User, onDeleted }) {
   const route = useRoute();
   const [isLiked, setIsLiked] = useState(false);
   const [likes, setLikes] = useState(Number(post.likes));
+  const [imageFailed, setImageFailed] = useState(false);
 
   let likeImg = require("../../../../assets/like.png");
   let likeFilledImg = require("../../../../assets/like_filled.png");
   let commentImg = require("../../../../assets/comment.png");
-
-  const attachmentName = post.fileName || (() => {
-    try {
-      const urlWithoutQuery = post.fileUrl?.split("?")[0] || "";
-      return decodeURIComponent(urlWithoutQuery.split("/").pop()) || "Attachment";
-    } catch (error) {
-      return "Attachment";
-    }
-  })();
-
-  const isImageAttachment = Boolean(
-    post.fileUrl &&
-    (post.fileType?.toLowerCase().startsWith("image/") ||
-      /\.(png|jpe?g|gif|webp|bmp|heic|heif)$/i.test(attachmentName))
-  );
-
-  const openAttachment = (event) => {
-    event?.stopPropagation?.();
-    if (post.fileUrl) {
-      Linking.openURL(post.fileUrl);
-    }
-  };
 
 
   const formatPostTime = (createdAt) => {
@@ -66,6 +46,15 @@ function PostComponentView({ navigation, post, User }) {
     const second = String(date.getSeconds()).padStart(2, "0");
 
     return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+  };
+
+  const isImageAttachment = (value) =>
+    typeof value === "string" && /\.(png|jpe?g|gif|webp|bmp|heic|heif|avif)(\?.*)?$/i.test(value);
+
+  const shouldTryImageRender = (value) => {
+    if (typeof value !== "string" || !value) return false;
+    if (isImageAttachment(value)) return true;
+    return value.includes("s3") && value.includes("x-id=GetObject");
   };
 
   useEffect(() => {
@@ -118,6 +107,29 @@ function PostComponentView({ navigation, post, User }) {
     }
   };
 
+  const normalizeValue = (value) =>
+    typeof value === "string" ? value.trim().toLowerCase() : "";
+
+  const isAdmin = normalizeValue(User?.userRole) === "admin";
+  const postOwner = normalizeValue(post?.user);
+  const userIdentifiers = [
+    normalizeValue(User?.userUserName),
+    normalizeValue(User?.username),
+  ].filter(Boolean);
+  const isOwner = postOwner ? userIdentifiers.includes(postOwner) : false;
+
+  const canDelete = Boolean(User) && (isAdmin || isOwner);
+
+  const handleDeletePost = () => {
+    if (!canDelete) return;
+
+    deletePost(post.id).then((wasDeleted) => {
+      if (wasDeleted && typeof onDeleted === "function") {
+        onDeleted(post.id);
+      }
+    });
+  };
+
 
   return (
     <TouchableOpacity
@@ -129,38 +141,35 @@ function PostComponentView({ navigation, post, User }) {
         });
       }}
     >
-      <View style={styles.postBody}>
-        <View style={styles.text}>
-          <Text style={styles.title}>{post.title || "no title"}</Text>
-          {post.createdAt && (
-            <Text style={styles.timestamp}>{formatPostTime(post.createdAt)}</Text>
-          )}
-          <Text style={styles.content}>{post.postContent}</Text>
-        </View>
+      <View style={styles.text}>
+      <Text style={styles.title}>{post.title || "no title"}</Text>
+      {post.createdAt && (
+        <Text style={styles.timestamp}>{formatPostTime(post.createdAt)}</Text>
+      )}
+      {canDelete && (
+        <TouchableOpacity style={styles.deleteButton} onPress={handleDeletePost}>
+          <Text style={styles.deleteButtonText}>Delete</Text>
+        </TouchableOpacity>
+      )}
+        <Text style={styles.content}>{post.postContent}</Text>
 
-        {post.fileUrl ? (
-          <TouchableOpacity
-            style={styles.attachmentContainer}
-            onPress={openAttachment}
-            accessibilityRole="button"
-            accessibilityLabel={`Open attachment ${attachmentName}`}
+        {shouldTryImageRender(post.fileUrl) && !imageFailed && (
+          <Image
+            style={styles.postImage}
+            source={{ uri: post.fileUrl }}
+            resizeMode="cover"
+            onError={() => setImageFailed(true)}
+          />
+        )}
+
+        {post.fileUrl && (!shouldTryImageRender(post.fileUrl) || imageFailed) && (
+          <Text
+            style={styles.linkText}
+            onPress={() => Linking.openURL(post.fileUrl)}
           >
-            {isImageAttachment ? (
-              <Image
-                style={styles.attachmentImage}
-                source={{ uri: post.fileUrl }}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={styles.filePreview}>
-                <Text style={styles.fileTypeLabel}>FILE</Text>
-                <Text style={styles.fileName} numberOfLines={1} ellipsizeMode="tail">
-                  {attachmentName}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        ) : null}
+            {"Open Attachment"}
+          </Text>
+        )}
       </View>
 
       <View style={styles.footer}>
@@ -192,47 +201,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   text: {
-    flex: 1,
     padding: 20,
-    paddingRight: 10,
-  },
-  postBody: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  attachmentContainer: {
-    width: 96,
-    minHeight: 96,
-    marginRight: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  attachmentImage: {
-    width: 88,
-    height: 88,
-    borderRadius: 8,
-    backgroundColor: "#E7ECFE",
-  },
-  filePreview: {
-    width: 92,
-    minHeight: 72,
-    paddingHorizontal: 8,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: "#E7ECFE",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  fileTypeLabel: {
-    color: "#6382E8",
-    fontSize: 11,
-    fontWeight: "700",
-    marginBottom: 5,
-  },
-  fileName: {
-    color: "#333333",
-    fontSize: 12,
-    textAlign: "center",
   },
   title: {
     color: "black",
@@ -245,9 +214,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 10,
   },
+  deleteButton: {
+    alignSelf: "flex-start",
+    backgroundColor: "#FEE2E2",
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+  },
+  deleteButtonText: {
+    color: "#B3261E",
+    fontWeight: "600",
+    fontSize: 12,
+  },
   content: {
     color: "black",
     fontSize: 15,
+  },
+  postImage: {
+    width: "100%",
+    height: 220,
+    borderRadius: 12,
+    marginTop: 12,
+  },
+  linkText: {
+    color: "blue",
+    fontSize: 15,
+    marginTop: 10,
   },
   footer: {
     flexDirection: "row",

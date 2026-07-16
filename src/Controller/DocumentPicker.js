@@ -3,128 +3,148 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import File from "../Model/File.js";
 import * as SecureStore from 'expo-secure-store';
-import { Alert } from "react-native";
+import { Alert, LogBox } from "react-native";
 import { apiUrl, fileUploadRoute } from "@env";
 
 //Allows users to select a document then upload to s3 
 
 async function selectDoc() {
-  const urlUpload = apiUrl + fileUploadRoute;
+  // URL for server 
+  let urlUpload = apiUrl + fileUploadRoute;
+  console.log(urlUpload)
+  var result = await DocumentPicker.getDocumentAsync({});
 
-  try {
-    // Expo's document picker can select both images and regular files.
-    const result = await DocumentPicker.getDocumentAsync({
-      type: "*/*",
-      multiple: false,
-      copyToCacheDirectory: true,
-    });
-
-    if (result.canceled || !result.assets?.length) {
-      return new File("", "", "");
-    }
-
-    const asset = result.assets[0];
+  // Result is not null
+  console.log(result);
+  
+  if (result) {
     let uploadData = new FormData();
     uploadData.append('file', {
-      uri: asset.uri,
-      type: asset.mimeType || "application/octet-stream",
-      name: asset.name || `attachment-${Date.now()}`,
+      uri: result.assets[0].uri,
+      type: result.assets[0].mimeType,
+      name: result.assets[0].name
     });
 
+    /* Output the uri, type, and name of the file
+    console.log(result.assets[0].uri);
+    console.log(result.assets[0].mimeType);
+    console.log(result.assets[0].name);
+    */
+
+    // Makes call to fileUpload route, currently set to local host but will be changed to the server url
     const responseOfFileUpload = await fetch(urlUpload, {
       method: 'POST',
       headers: {
+        //'Content-Type': 'multipart/form-data',
         'Authorization': "Bearer " + await SecureStore.getItemAsync("token")
       },
       body: uploadData,
     });
 
-    if (!responseOfFileUpload.ok) {
-      Alert.alert('Upload failed', 'Unable to upload the selected attachment.');
-      return new File("", "", "");
+    let bucket = "";
+    let fileUrl = "";
+    let publicFileUrl = "";
+    if (responseOfFileUpload.status == 200) {
+      let responseUpload = await responseOfFileUpload.json();
+      bucket = responseUpload.bucket;
+      fileUrl = responseUpload.file;
+      publicFileUrl = responseUpload.url || `https://${bucket}.s3.us-east-2.amazonaws.com/${fileUrl}`;
+    } else {
+      console.log("Unable to connect to server when uploading file, check that the url is correct and the the server is running...");
+      Alert.alert('Failed to upload file')
     }
 
-    const responseUpload = await responseOfFileUpload.json();
-    const publicFileUrl = responseUpload.url ||
-      `https://${responseUpload.bucket}.s3.us-east-2.amazonaws.com/${responseUpload.file}`;
+    // Log the public file url
+    console.log("Public file url: " + publicFileUrl);
 
-    return new File(
-      publicFileUrl,
-      asset.name || responseUpload.file,
-      asset.mimeType || "application/octet-stream"
-    );
-  } catch (error) {
-    console.error("Attachment selection/upload failed:", error);
-    Alert.alert('Upload failed', 'Unable to upload the selected attachment.');
-    return new File("", "", "");
-  }
+    // Return the file object
+    const f = new File(publicFileUrl, fileUrl, result.assets[0].mimeType || "");
+    console.log(f);
+    return f;
+
+  } else return new File("", "", "");
 }
 
 async function selectPic(isProfilePic) {
-  const urlUpload = apiUrl + fileUploadRoute;
+  // URL for server 
+  let urlUpload = apiUrl + fileUploadRoute;
+  console.log(urlUpload)
+  
+  let result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ['images', 'videos'],
+    allowsEditing: true,
+    aspect: [4, 3],
+    quality: 1,
+  });
 
-  try {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert(
-        'Photo permission required',
-        'Please allow access to your photo library to upload an image.'
-      );
-      return new File("", "", "");
-    }
+  // Result is not null
+  console.log(result);
+  
+  if (result && !result.canceled && result.assets && result.assets.length > 0) {
+    let uploadData = new FormData();
+    const mimeType = result.assets[0].mimeType;
+    const username = await SecureStore.getItemAsync("username");
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: Boolean(isProfilePic),
-      ...(isProfilePic ? { aspect: [4, 3] } : {}),
-      quality: 1,
-    });
+    // Strip email part of the username
+    const emailPreAt = username.split("@")[0]; // Part of the username before the @ symbol in the email
 
-    if (result.canceled || !result.assets?.length) {
-      return new File("", "", "");
-    }
-
-    const asset = result.assets[0];
-    const mimeType = asset.mimeType || "image/jpeg";
-    const extension = mimeType.split("/")[1] || "jpg";
-    const originalName = asset.fileName || `image-${Date.now()}.${extension}`;
-    const uploadData = new FormData();
+    const mimeSubType = mimeType.split("/")[1] || "jpg";
 
     uploadData.append('file', {
-      uri: asset.uri,
+      uri: result.assets[0].uri,
       type: mimeType,
-      name: originalName,
+      // No name will be attached to this by default, see Expo ImagePicker docs
+      // Using profilePictureMMDDYYYYHHMMSS.png as a default name
+      name: `${emailPreAt}profilePicture${Date.now()}.${mimeSubType}`
     });
 
-    uploadData.append('isProfilePic', isProfilePic ? 'true' : 'false');
+    // Specify if the image upload is for a post or profile picture
     if (isProfilePic) {
-      const username = await SecureStore.getItemAsync("username");
-      if (username) uploadData.append('email', username);
-    }
+      uploadData.append('isProfilePic', 'true');
+      uploadData.append('email', username);
+    } else {
+      uploadData.append('isProfilePic', 'false');
+    }    
 
+    /* Output the uri, type, and name of the file
+    console.log(uploadData.uri);
+    console.log(uploadData.type);
+    console.log(uploadData.name);
+    console.log(uploadData.email);*/
+
+    // Makes call to fileUpload route, currently set to local host but will be changed to the server url
     const responseOfFileUpload = await fetch(urlUpload, {
       method: 'POST',
       headers: {
+        //'Content-Type': 'multipart/form-data',
         'Authorization': "Bearer " + await SecureStore.getItemAsync("token")
       },
       body: uploadData,
     });
 
-    if (!responseOfFileUpload.ok) {
-      Alert.alert('Upload failed', 'Unable to upload the selected image.');
-      return new File("", "", "");
+    let bucket = "";
+    let fileUrl = "";
+    let publicFileUrl = "";
+    if (responseOfFileUpload.status == 200) {
+      let responseUpload = await responseOfFileUpload.json();
+      bucket = responseUpload.bucket;
+      fileUrl = responseUpload.file;
+      publicFileUrl = responseUpload.url || `https://${bucket}.s3.us-east-2.amazonaws.com/${fileUrl}`;
+      Alert.alert('Image upload was successful!')
+    } else {
+      console.log("Unable to connect to server when uploading file, check that the url is correct and the the server is running...");
+      Alert.alert('Failed to upload file')
     }
 
-    const responseUpload = await responseOfFileUpload.json();
-    const publicFileUrl = responseUpload.url ||
-      `https://${responseUpload.bucket}.s3.us-east-2.amazonaws.com/${responseUpload.file}`;
+    // Log the public file url
+    console.log("Public file url: " + publicFileUrl);
 
-    return new File(publicFileUrl, originalName, mimeType);
-  } catch (error) {
-    console.error("Image selection/upload failed:", error);
-    Alert.alert('Upload failed', 'Unable to upload the selected image.');
-    return new File("", "", "");
-  }
+    // Return the file object
+    const f = new File(publicFileUrl, fileUrl, mimeType || "");
+    console.log("Logging the file to be returned\n" + f);
+    return f;
+
+  } else return new File("", "", "");
 }
 
 export { selectDoc, selectPic };

@@ -47,11 +47,11 @@ function FriendsNavigator({ navigation }) {
         name="Friends"
         component={FriendsView}
         initialParams={route.params}
-        options={{
+        options={({ navigation: stackNavigation }) => ({
           headerBackTitleVisible: false,
           headerLeft: () => null,
-          headerRight: () => <SearchButton navigation={navigation} />,
-        }}
+          headerRight: () => <SearchButton navigation={stackNavigation} />,
+        })}
       />
 
       <Stack.Screen
