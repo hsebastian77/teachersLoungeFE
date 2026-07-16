@@ -27,6 +27,7 @@ function PostView({ route, navigation }) {
   const [newComment, setNewComment] = useState("");
   const [likes, setLikes] = useState(Number(post.likes));
   const [isLiked, setIsLiked] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
 
   let likeImg = require("../../../../assets/like.png");
   let likeFilledImg = require("../../../../assets/like_filled.png");
@@ -47,6 +48,15 @@ function PostView({ route, navigation }) {
     const second = String(date.getSeconds()).padStart(2, "0");
 
     return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+  };
+
+  const isImageAttachment = (value) =>
+    typeof value === "string" && /\.(png|jpe?g|gif|webp|bmp|heic|heif|avif)(\?.*)?$/i.test(value);
+
+  const shouldTryImageRender = (value) => {
+    if (typeof value !== "string" || !value) return false;
+    if (isImageAttachment(value)) return true;
+    return value.includes("s3") && value.includes("x-id=GetObject");
   };
 
   useEffect(() => {
@@ -147,9 +157,17 @@ function PostView({ route, navigation }) {
               <Text style={styles.timestamp}>{formatPostTime(post.createdAt)}</Text>
               )}
             <Text style={styles.content}>{post.postContent}</Text>
-            {post.fileUrl && (
+            {shouldTryImageRender(post.fileUrl) && !imageFailed && (
+              <Image
+                style={styles.postImage}
+                source={{ uri: post.fileUrl }}
+                resizeMode="cover"
+                onError={() => setImageFailed(true)}
+              />
+            )}
+            {post.fileUrl && (!shouldTryImageRender(post.fileUrl) || imageFailed) && (
               <Text style={styles.linkText} onPress={() => Linking.openURL(post.fileUrl)}>
-                {"Open Image File"}
+                {"Open Attachment"}
               </Text>
             )}
           </View>
@@ -234,6 +252,12 @@ const styles = StyleSheet.create({
   content: {
     color: "black",
     fontSize: 18,
+  },
+  postImage: {
+    width: "100%",
+    height: 260,
+    borderRadius: 12,
+    marginTop: 12,
   },
   linkText: {
     color: "blue",
