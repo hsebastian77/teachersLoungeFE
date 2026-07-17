@@ -6,44 +6,32 @@ import {
 } from "react-native";
 import SafeArea from "../../SafeArea";
 import App_StyleSheet from "../../../Styles/App_StyleSheet";
-import OpenEducationalResourcesCommand from "../../../Controller/OpenEducationalResourcesCommand";
-import { useAuth } from "../../../context/AuthContext";
 
 function EducationalResourcesView({ navigation }) {
-  const { user } = useAuth();
-
   const ERView1 = "Pre-K And Elementary";
   const ERView2 = "Middle And High School";
   const ERView3 = "Adult Learning And Higher Education";
-
-  const openResourcesCommand = new OpenEducationalResourcesCommand(user);
 
   return (
     <SafeArea>
       <View style={App_StyleSheet.resource_backGround}>
         <TouchableOpacity
           style={App_StyleSheet.resource_button}
-          onPress={() =>
-            openResourcesCommand.OpenResources({ navigation }, ERView1)
-          }
+          onPress={() => navigation.navigate(ERView1)}
         >
           <Text style={App_StyleSheet.resource_cardTitle}>{ERView1}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={App_StyleSheet.resource_button}
-          onPress={() =>
-            openResourcesCommand.OpenResources({ navigation }, ERView2)
-          }
+          onPress={() => navigation.navigate(ERView2)}
         >
           <Text style={App_StyleSheet.resource_cardTitle}>{ERView2}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={App_StyleSheet.resource_button}
-          onPress={() =>
-            openResourcesCommand.OpenResources({ navigation }, ERView3)
-          }
+          onPress={() => navigation.navigate(ERView3)}
         >
           <Text style={App_StyleSheet.resource_cardTitle}>{ERView3}</Text>
         </TouchableOpacity>

@@ -5,14 +5,11 @@ import {
   View,
   TouchableOpacity,
   Dimensions,
+  Alert,
 } from "react-native";
 import { TextInput } from "react-native-paper";
-// import LogInCommand from "../Controller/LogInCommand";
 import { register } from "../Controller/RegisterCommand";
 import App_StyleSheet from "../Styles/App_StyleSheet";
-
-const screenHeight = Dimensions.get("window").height;
-const screenWidth = Dimensions.get("window").width;
 
 function RegisterView({ navigation, route }) {
   const [firstName, setFirstName] = useState("");
@@ -76,22 +73,26 @@ function RegisterView({ navigation, route }) {
 
         <TouchableOpacity
           style={App_StyleSheet.default_button}
-          onPress={async () => {
-            setRegisterLoading(true);
-            setRegisterError("");
-            const result = await register(
-              { navigation },
-              firstName,
-              lastName,
-              username,
-              email,
-              password
-            );
-            if (!result?.ok) {
-              setRegisterError(result?.message || "Unable to register.");
+          onPress={
+            async () => {
+              setRegisterLoading(true);
+              setRegisterError("");
+              const result = await register(
+                firstName,
+                lastName,
+                username,
+                email,
+                password
+              );
+              if (!result?.ok) {
+                setRegisterError(result?.message || "Unable to register.");
+              } else {
+                Alert.alert("Success", "Account created! Please sign in.");
+                navigation.navigate("SignIn");
+              }
+              setRegisterLoading(false);
             }
-            setRegisterLoading(false);
-          }}
+          }
           disabled={registerLoading}
         >
           <Text style={App_StyleSheet.text}>{registerLoading ? "Creating Account..." : "Confirm"}</Text>
@@ -99,7 +100,7 @@ function RegisterView({ navigation, route }) {
 
         <TouchableOpacity
           style={App_StyleSheet.default_button}
-          onPress={() => navigation.navigate("Login")}
+          onPress={() => navigation.navigate("SignIn")}
           disabled={registerLoading}
         >
           <Text style={App_StyleSheet.text}>{"Back"}</Text>

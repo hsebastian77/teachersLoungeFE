@@ -8,6 +8,7 @@ import App_StyleSheet from '../Styles/App_StyleSheet';
 import { apiUrl } from '@env';
 import * as SecureStore from 'expo-secure-store';
 import User from '../Model/User';
+import { useAuth } from '../context/AuthContext';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -28,6 +29,8 @@ const LINKEDIN_REDIRECT_URI = AuthSession.makeRedirectUri({
 });
 
 function SocialLoginView({ navigation }) {
+  const { setPendingAuth, login } = useAuth();
+
   // Google Auth
   const [googleRequest, googleResponse, googlePromptAsync] = AuthSession.useAuthRequest(
     {
@@ -207,42 +210,38 @@ function SocialLoginView({ navigation }) {
   };
 
   const handleSocialLoginSuccess = async (data) => {
-    if (data.user != null) {
-      let user = new User(
-        data.user.Email,
-        data.user.FirstName,
-        data.user.LastName,
-        data.user.SchoolID,
-        data.user.Role,
-        data.user.ProfilePicLink
-      );
+  if (!data.user) return;
 
-      try {
-        // Store token
+  let user = new User(
+    data.user.Email,
+    data.user.FirstName,
+    data.user.LastName,
+    data.user.SchoolID,
+    data.user.Role,
+    data.user.ProfilePicLink
+  );
+
+  try {
+    if (user.userRole === "Approved" || user.userRole === "Admin") {
+
+      if (data.requires2FA) {
+        setPendingAuth({
+          email: data.user.Email,
+          tempToken: data.token,
+        });
+      } else {
         await SecureStore.setItemAsync("token", data.token);
-        await SecureStore.setItemAsync("username", data.user.Email);
-
-        if (user.userRole == "Approved" || user.userRole == "Admin") {
-          // Check if this is the admin account which should bypass 2FA
-          if (data.user.Email.toLowerCase() === "admin@admin.com") {
-            // Admin account bypasses 2FA and goes directly to main app
-            navigation.navigate("User", { User: user });
-          } else {
-          // Check if 2FA is enabled for this user
-          if (data.requires2FA) {
-            navigation.navigate("TwoFactorAuth", { User: user, email: data.user.Email });
-          } else {
-            navigation.navigate("User", { User: user });
-            }
-          }
-        } else {
-          Alert.alert("Still awaiting approval to join the app");
-        }
-      } catch (error) {
-        Alert.alert("Couldn't login, please try again");
+        login(user);
       }
+
+    } else {
+      Alert.alert("Still awaiting approval to join the app");
     }
-  };
+
+  } catch (error) {
+    Alert.alert("Couldn't login, please try again");
+  }
+};
 
   return (
     <View style={App_StyleSheet.socialLoginContainer}>

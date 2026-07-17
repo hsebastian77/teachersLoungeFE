@@ -8,6 +8,7 @@ import * as AuthSession from 'expo-auth-session';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { handleGoogleLogin, handleLinkedInLogin, handleAppleLogin } from '../Controller/SocialLoginCommand';
 import { WebView } from 'react-native-webview';
+import { login } from "../Controller/LogInCommand";
 import { useAuth } from "../context/AuthContext";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -34,7 +35,7 @@ const LINKEDIN_CLIENT_ID = '77bw10d90022pu';
 const LINKEDIN_REDIRECT_URI = 'https://omegaeducationaltechsolutions.com/linkedin-redirect';
 
 function SignInView({ navigation }) {
-  const { login: authLogin } = useAuth();
+  const { login: authLogin, setPendingAuth } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
@@ -212,26 +213,31 @@ function SignInView({ navigation }) {
 
         {authError ? <Text style={App_StyleSheet.authErrorText}>{authError}</Text> : null}
         
-
-        
         <TouchableOpacity
           style={App_StyleSheet.default_button}
-          onPress={
-            async () => {
-              setAuthLoading(true);
-              setAuthError("");
+          onPress={async () => {
+            setAuthLoading(true);
+            setAuthError("");
 
-              const result = await login(email, password);
+            const result = await login(email, password);
 
-              if (result?.ok) {
-                authLogin(result.user);
+            if (result?.ok) {
+              if (result.requires2FA) {
+                setPendingAuth({
+                  email: result.email,
+                  tempToken: result.token,
+                });
+
+                navigation.navigate("TwoFactorAuth");
               } else {
-                setAuthError(result?.message || "Unable to sign in.");
+                authLogin(result.user);
               }
-
-              setAuthLoading(false);
+            } else {
+              setAuthError(result?.message || "Unable to sign in.");
             }
-          }
+
+            setAuthLoading(false);
+          }}
           disabled={authLoading}
         >
           <Text style={App_StyleSheet.text}>{authLoading ? "Signing In..." : "Sign In"}</Text>

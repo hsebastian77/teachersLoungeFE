@@ -2,6 +2,7 @@ import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useAuth } from "../context/AuthContext";
 
+import TwoFactorAuthView from "../View/TwoFactorAuthView";
 import SignInView from "../View/SignInView";
 import RegisterView from "../View/RegisterView";
 import PostView from "../View/UserView/HomeView/PostView";
@@ -10,7 +11,7 @@ import UserView from "../View/UserView/UserView";
 const Stack = createNativeStackNavigator();
 
 export default function RootNavigator() {
-  const { user } = useAuth();
+  const { user, pendingAuth } = useAuth();
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -18,6 +19,10 @@ export default function RootNavigator() {
         <>
           <Stack.Screen name="MainTabs" component={UserView} />
           <Stack.Screen name="PostView" component={PostView} />
+        </>
+      ) : pendingAuth ? (
+        <>
+          <Stack.Screen name="TwoFactorAuth" component={TwoFactorAuthView} />
         </>
       ) : (
         <>

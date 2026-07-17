@@ -1,39 +1,42 @@
-
 import User from "../Model/User";
 import { Alert } from "react-native";
 import { apiUrl, registerRoute, PASSWORD_ENCRYPTER } from "@env";
 
-
-//Called from the RegisterView, creates a new user
-async function register({ navigation }, fName, lName, username, email, password){
-  if ((fName != "") && (lName != "") && (username != "") && (email != "") && (password != "")) {
+async function register(fName, lName, username, email, password) {
+  if (fName && lName && username && email && password) {
     let urlRegister = apiUrl + registerRoute;
-    const reqOptions = {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ firstName: fName, lastName: lName, username: username, email: email, password: password, role: "Approved" })
-    };
+
     try {
-      const response = await fetch(urlRegister, reqOptions);
+      const response = await fetch(urlRegister, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: fName,
+          lastName: lName,
+          username,
+          email,
+          password,
+          role: "Approved"
+        }),
+      });
+
       const data = await response.json();
-      if (response.status != 200) {
+
+      if (response.status !== 200) {
         return { ok: false, message: data.message || "Failed to register" };
-      } else {
-        let user = new User(email, fName, lName);
-        navigation.navigate("Login");
-        return { ok: true, message: "Account Created!" };
       }
+
+      return { ok: true, message: "Account Created!" };
+
     } catch (error) {
       return {
         ok: false,
-        message: "Unable to connect to server. Please check your internet connection.",
+        message: "Unable to connect to server.",
       };
     }
-  } else {
-    return { ok: false, message: "Fields cannot be blank" };
   }
+
+  return { ok: false, message: "Fields cannot be blank" };
 }
 
 export { register };

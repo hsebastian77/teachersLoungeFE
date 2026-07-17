@@ -1,26 +1,27 @@
 import { Alert } from "react-native";
-import Friend from "../Model/Friend";
-import Post from "../Model/Posts/Post";
-import User from "../Model/User";
 import * as SecureStore from "expo-secure-store";
 import { deleteUser } from "./UserManager";
+import { useAuth } from "../context/AuthContext";
 
 class DeleteAccountCommand {
-    constructor() { }
+  constructor() {}
 
-    async DeleteAccount({ navigation, user }) {
-        //navigation.navigate("User", { User: user });
+  async DeleteAccount() {
+    try {
+      const { user, setUser } = useAuth();
 
-        try {
-            // Remove token from Secure Store
-            await SecureStore.deleteItemAsync("token");
-            deleteUser(user.userUserName);
-            // Navigate to logout screen
-            navigation.navigate("LogOut");
-        } catch (error) {
-            Alert.alert("Couldn't logout, please try again");
-        }
+      await deleteUser(user.userUserName);
+
+      await SecureStore.deleteItemAsync("token");
+
+      setUser(null);
+
+      return { ok: true };
+    } catch (error) {
+      Alert.alert("Couldn't delete account, please try again");
+      return { ok: false };
     }
+  }
 }
 
 export default DeleteAccountCommand;

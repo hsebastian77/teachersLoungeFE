@@ -11,11 +11,27 @@ import SafeArea from "../../SafeArea";
 
 function SettingsView() {
   const navigation = useNavigation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const editProfileCommand = new OpenEditProfileCommand(user);
   const logOutCommand = new LogOutCommand();
   const deleteAccountCommand = new DeleteAccountCommand();
+
+  const handleLogout = async () => {
+    const result = await logOutCommand.LogOut();
+
+    if (result.ok) {
+      logout();
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const result = await deleteAccountCommand.DeleteAccount(user);
+
+    if (result.ok) {
+      logout();
+    }
+  };
 
   return (
     <SafeArea>
@@ -29,16 +45,14 @@ function SettingsView() {
 
         <TouchableOpacity
           style={styles.button}
-          onPress={() => logOutCommand.LogOut({ navigation })}
+          onPress={handleLogout}
         >
           <Text style={styles.buttonText}>Log Out</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.button}
-          onPress={() =>
-            deleteAccountCommand.DeleteAccount({ navigation, user })
-          }
+          onPress={handleDeleteAccount}
         >
           <Text style={styles.buttonTextRed}>Delete Account</Text>
         </TouchableOpacity>

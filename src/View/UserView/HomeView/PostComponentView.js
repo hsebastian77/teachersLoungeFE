@@ -34,10 +34,10 @@ function PostComponentView({ post }) {
       if (!user?.userUserName) return;
 
       try {
-        const liked = await checkLikePost(post, user.userUserName);
+        const liked = await checkLikePost(post.id, user.userUserName);
         setIsLiked(liked);
 
-        const totalLikes = await getPostLikes(post);
+        const totalLikes = await getPostLikes(post.id);
         setLikes(Number(totalLikes));
       } catch (error) {
         console.error("Error initializing likes:", error);
@@ -61,13 +61,13 @@ function PostComponentView({ post }) {
   const handleLikeToggle = async () => {
     try {
       if (isLiked) {
-        const unlikeSuccess = await unlikePost(post, user.userUserName);
+        const unlikeSuccess = await unlikePost(post.id, user.userUserName);
         if (unlikeSuccess) {
           setIsLiked(false);
           setLikes((prevLikes) => prevLikes - 1);
         }
       } else {
-        const likeSuccess = await likePost(post, user.userUserName);
+        const likeSuccess = await likePost(post.id, user.userUserName);
         if (likeSuccess) {
           setIsLiked(true);
           setLikes((prevLikes) => prevLikes + 1);
@@ -85,7 +85,7 @@ function PostComponentView({ post }) {
     <TouchableOpacity
       style={styles.post}
       onPress={() => {
-        navigation.navigate("View Post", {
+        navigation.navigate("PostView", {
           post,
         });
       }}
@@ -125,3 +125,62 @@ function PostComponentView({ post }) {
     </TouchableOpacity>
   );
 }
+
+const styles = StyleSheet.create({
+  post: {
+    width: "90%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    alignSelf: "center",
+    marginBottom: 15,
+  },
+  text: {
+    padding: 20,
+  },
+  title: {
+    color: "black",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  timestamp: {
+    color: "#666666",
+    fontSize: 12,
+    marginBottom: 10,
+  },
+  content: {
+    color: "black",
+    fontSize: 15,
+  },
+  linkText: {
+    color: "blue",
+    fontSize: 15,
+    marginTop: 10,
+  },
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderRadius: 9,
+    backgroundColor: "#E7ECFE",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  footerSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingRight: 8,
+  },
+  icon: {
+    width: 30,
+    height: 30,
+    marginHorizontal: 5,
+  },
+  communityName: {
+    marginLeft: "auto",
+    fontWeight: "bold",
+    marginHorizontal: 5,
+  },
+});
+
+export default PostComponentView;

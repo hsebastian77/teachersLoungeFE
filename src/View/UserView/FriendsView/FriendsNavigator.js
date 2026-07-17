@@ -1,6 +1,7 @@
 import React from "react";
 import { TouchableOpacity, Image } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { useNavigation } from "@react-navigation/native";
 
 import FriendsView from "./FriendsView";
 import FriendView from "./FriendView";
@@ -13,14 +14,18 @@ const Stack = createNativeStackNavigator();
 const searchIcon = require("../../../../assets/search.png");
 
 // Reusable header button
-const SearchButton = ({ navigation }) => (
-  <TouchableOpacity
-    onPress={() => navigation.navigate("Search")}
-    style={App_StyleSheet.header_button}
-  >
-    <Image source={searchIcon} style={App_StyleSheet.header_icon} />
-  </TouchableOpacity>
-);
+const SearchButton = () => {
+  const navigation = useNavigation();
+
+  return (
+    <TouchableOpacity
+      onPress={() => navigation.navigate("Search")}
+      style={App_StyleSheet.header_button}
+    >
+      <Image source={searchIcon} style={App_StyleSheet.header_icon} />
+    </TouchableOpacity>
+  );
+};
 
 function FriendsNavigator({ navigation }) {
   const defaultOptions = {
@@ -46,7 +51,7 @@ function FriendsNavigator({ navigation }) {
         options={{
           headerBackTitleVisible: false,
           headerLeft: () => null,
-          headerRight: () => <SearchButton navigation={navigation} />,
+          headerRight: () => <SearchButton />,
         }}
       />
 

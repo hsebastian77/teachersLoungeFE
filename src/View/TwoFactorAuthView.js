@@ -1,192 +1,91 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
-import App_StyleSheet from '../Styles/App_StyleSheet';
-import { apiUrl } from '@env';
+import React, { useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import {
+  View,
+  Text,
+  TextInput,
+  Button,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 
-function TwoFactorAuthView({ navigation, route }) {
-  const { User, email } = route.params;
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [resendTimer, setResendTimer] = useState(60);
-  const [canResend, setCanResend] = useState(false);
-  const inputRefs = useRef([]);
+import { useAuth } from '../context/AuthContext';
+import { verifyOTP } from '../Controller/TwoFactorAuthCommand';
 
-  useEffect(() => {
-    // Send OTP when component mounts
-    sendOTP();
-    
-    // Start countdown timer
-    const timer = setInterval(() => {
-      setResendTimer(prev => {
-        if (prev <= 1) {
-          setCanResend(true);
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+const TwoFactorAuthView = () => {
+  const { pendingAuth, login } = useAuth();
 
-    return () => clearInterval(timer);
-  }, []);
+  const [code, setCode] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const sendOTP = async () => {
+  const handleVerify = async () => {
+    const trimmedCode = code.trim();
+
+    if (!trimmedCode) {
+      Alert.alert('Error', 'Please enter the verification code.');
+      return;
+    }
+
+    if (!pendingAuth?.email || !pendingAuth?.tempToken) {
+      Alert.alert('Error', 'Authentication session expired. Please log in again.');
+      return;
+    }
+
     try {
-      const response = await fetch(`${apiUrl}/api/auth/send-otp`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + (await SecureStore.getItemAsync("token")),
-        },
-        body: JSON.stringify({ email }),
-      });
+      setLoading(true);
 
-      const data = await response.json();
-      if (response.status === 200) {
-        Alert.alert('Success', 'Verification code sent to your email');
-      } else {
-        Alert.alert('Error', data.message || 'Failed to send verification code');
+      const { email, tempToken } = pendingAuth;
+
+      const result = await verifyOTP(email, trimmedCode, tempToken);
+
+      if (!result?.ok) {
+        throw new Error(result?.message || 'Invalid verification code.');
       }
+
+      await SecureStore.setItemAsync("token", result.token);
+      login(result.user); // sets user
     } catch (error) {
-      Alert.alert('Error', 'Failed to send verification code');
-    }
-  };
-
-  const handleResendOTP = async () => {
-    if (!canResend) return;
-    
-    setCanResend(false);
-    setResendTimer(60);
-    await sendOTP();
-    
-    // Restart timer
-    const timer = setInterval(() => {
-      setResendTimer(prev => {
-        if (prev <= 1) {
-          setCanResend(true);
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  const handleOtpChange = (value, index) => {
-    const newOtp = [...otp];
-    newOtp[index] = value;
-    setOtp(newOtp);
-
-    // Auto-focus next input
-    if (value && index < 5) {
-      inputRefs.current[index + 1]?.focus();
-    }
-
-    // Auto-submit when all digits are entered
-    if (index === 5 && value) {
-      const fullOtp = newOtp.join('');
-      if (fullOtp.length === 6) {
-        verifyOTP(fullOtp);
-      }
-    }
-  };
-
-  const handleKeyPress = (e, index) => {
-    if (e.nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-    }
-  };
-
-  const verifyOTP = async (otpCode) => {
-    try {
-      const response = await fetch(`${apiUrl}/api/auth/verify-otp`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + (await SecureStore.getItemAsync("token")),
-        },
-        body: JSON.stringify({ 
-          email,
-          otp: otpCode || otp.join('') 
-        }),
-      });
-
-      const data = await response.json();
-      if (response.status === 200) {
-        // Update token with 2FA verified token
-        if (data.token) {
-          await SecureStore.setItemAsync("token", data.token);
-        }
-        
-        Alert.alert('Success', 'Verification successful!');
-        navigation.navigate("User", { User });
-      } else {
-        Alert.alert('Error', data.message || 'Invalid verification code');
-        // Clear OTP inputs
-        setOtp(['', '', '', '', '', '']);
-        inputRefs.current[0]?.focus();
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to verify code');
+      Alert.alert(
+        'Verification Failed',
+        error?.message || 'Something went wrong. Please try again.'
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={App_StyleSheet.register_signIn_background}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <View style={App_StyleSheet.block}>
-        <Text style={App_StyleSheet.twoFactorTitle}>Two-Factor Authentication</Text>
-        <Text style={App_StyleSheet.twoFactorSubtitle}>
-          Enter the 6-digit code sent to your email
-        </Text>
-        
-        <View style={App_StyleSheet.otpContainer}>
-          {otp.map((digit, index) => (
-            <TextInput
-              key={index}
-              ref={ref => inputRefs.current[index] = ref}
-              style={App_StyleSheet.otpInput}
-              value={digit}
-              onChangeText={(value) => handleOtpChange(value, index)}
-              onKeyPress={(e) => handleKeyPress(e, index)}
-              keyboardType="numeric"
-              maxLength={1}
-              selectTextOnFocus
-              textAlign="center"
-            />
-          ))}
-        </View>
+    <View style={{ padding: 20 }}>
+      <Text style={{ marginBottom: 10 }}>
+        Enter the verification code
+      </Text>
 
-        <TouchableOpacity
-          style={App_StyleSheet.default_button}
-          onPress={() => verifyOTP()}
-        >
-          <Text style={App_StyleSheet.text}>Verify</Text>
-        </TouchableOpacity>
+      <TextInput
+        value={code}
+        onChangeText={setCode}
+        placeholder="6-digit code"
+        keyboardType="numeric"
+        autoCapitalize="none"
+        style={{
+          borderWidth: 1,
+          borderColor: '#ccc',
+          padding: 10,
+          marginBottom: 20,
+          borderRadius: 5,
+        }}
+      />
 
-        <View style={App_StyleSheet.resendContainer}>
-          {canResend ? (
-            <TouchableOpacity onPress={handleResendOTP}>
-              <Text style={App_StyleSheet.resendText}>Resend Code</Text>
-            </TouchableOpacity>
-          ) : (
-            <Text style={App_StyleSheet.resendTimerText}>
-              Resend code in {resendTimer}s
-            </Text>
-          )}
-        </View>
-
-        <TouchableOpacity
-          style={App_StyleSheet.default_button}
-          onPress={() => navigation.navigate("Login")}
-        >
-          <Text style={App_StyleSheet.text}>Back to Login</Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+      {loading ? (
+        <ActivityIndicator />
+      ) : (
+        <Button
+          title="Verify"
+          onPress={handleVerify}
+          disabled={!code.trim()}
+        />
+      )}
+    </View>
   );
-}
+};
 
-export default TwoFactorAuthView; 
+export default TwoFactorAuthView;

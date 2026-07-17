@@ -9,8 +9,6 @@ import {
 } from "react-native";
 import SafeArea from "../../SafeArea";
 import App_StyleSheet from "../../../Styles/App_StyleSheet";
-import OpenEducationalResourcesCommand from "../../../Controller/OpenEducationalResourcesCommand";
-import { useAuth } from "../../../context/AuthContext";
 
 const healthImg = require("../../../../assets/mentalhealth.jpg");
 const eduImg = require("../../../../assets/edu.jpg");
@@ -18,10 +16,6 @@ const profImg = require("../../../../assets/prof.jpg");
 const logo = require("../../../../assets/Logo_rev.jpg");
 
 function ResourcesView({ navigation }) {
-  const { user } = useAuth();
-
-  const openResourcesCommand = new OpenEducationalResourcesCommand(user);
-
   const ERView = "Educational Resources";
   const TLView = "Teachers' Lounge";
 
@@ -48,9 +42,7 @@ function ResourcesView({ navigation }) {
 
         <TouchableOpacity
           style={App_StyleSheet.resource_button}
-          onPress={() =>
-            openResourcesCommand.OpenResources({ navigation }, ERView)
-          }
+          onPress={() => navigation.navigate(ERView)}
         >
           <Text style={App_StyleSheet.resource_cardTitle}>
             {"Educational Resources"}
@@ -74,9 +66,7 @@ function ResourcesView({ navigation }) {
 
         <TouchableOpacity
           style={App_StyleSheet.resource_button}
-          onPress={() =>
-            openResourcesCommand.OpenResources({ navigation }, TLView)
-          }
+          onPress={() => navigation.navigate(TLView)}
         >
           <Text style={App_StyleSheet.resource_cardTitle}>
             {"About Teachers' Lounge"}

@@ -87,3 +87,24 @@ function ProfileView({ navigation }) {
     </SafeArea>
   );
 }
+
+const styles = StyleSheet.create({
+  profileSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
+    width: "90%",
+    alignSelf: "center",
+    marginLeft: 10
+  },
+  username: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginLeft: 15,
+    color: "white",
+    flex: 1,
+  },
+});
+
+export default ProfileView;
