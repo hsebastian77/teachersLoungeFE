@@ -13,11 +13,13 @@ import { likePost } from "../../../Controller/LikePostCommand";
 import { unlikePost } from "../../../Controller/UnlikePostCommand";
 import { getPostLikes } from "../../../Controller/GetPostLikesCommand";
 import { checkLikePost } from "../../../Controller/CheckLikedPostCommand";
+import { deletePost } from "../../../Controller/PostManager";
 
-function PostComponentView({ navigation, post, User }) {
+function PostComponentView({ navigation, post, User, onDeleted }) {
   const route = useRoute();
   const [isLiked, setIsLiked] = useState(false);
   const [likes, setLikes] = useState(Number(post.likes));
+  const [imageFailed, setImageFailed] = useState(false);
 
   let likeImg = require("../../../../assets/like.png");
   let likeFilledImg = require("../../../../assets/like_filled.png");
@@ -44,6 +46,15 @@ function PostComponentView({ navigation, post, User }) {
     const second = String(date.getSeconds()).padStart(2, "0");
 
     return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+  };
+
+  const isImageAttachment = (value) =>
+    typeof value === "string" && /\.(png|jpe?g|gif|webp|bmp|heic|heif|avif)(\?.*)?$/i.test(value);
+
+  const shouldTryImageRender = (value) => {
+    if (typeof value !== "string" || !value) return false;
+    if (isImageAttachment(value)) return true;
+    return value.includes("s3") && value.includes("x-id=GetObject");
   };
 
   useEffect(() => {
@@ -96,6 +107,29 @@ function PostComponentView({ navigation, post, User }) {
     }
   };
 
+  const normalizeValue = (value) =>
+    typeof value === "string" ? value.trim().toLowerCase() : "";
+
+  const isAdmin = normalizeValue(User?.userRole) === "admin";
+  const postOwner = normalizeValue(post?.user);
+  const userIdentifiers = [
+    normalizeValue(User?.userUserName),
+    normalizeValue(User?.username),
+  ].filter(Boolean);
+  const isOwner = postOwner ? userIdentifiers.includes(postOwner) : false;
+
+  const canDelete = Boolean(User) && (isAdmin || isOwner);
+
+  const handleDeletePost = () => {
+    if (!canDelete) return;
+
+    deletePost(post.id).then((wasDeleted) => {
+      if (wasDeleted && typeof onDeleted === "function") {
+        onDeleted(post.id);
+      }
+    });
+  };
+
 
   return (
     <TouchableOpacity
@@ -112,14 +146,28 @@ function PostComponentView({ navigation, post, User }) {
       {post.createdAt && (
         <Text style={styles.timestamp}>{formatPostTime(post.createdAt)}</Text>
       )}
+      {canDelete && (
+        <TouchableOpacity style={styles.deleteButton} onPress={handleDeletePost}>
+          <Text style={styles.deleteButtonText}>Delete</Text>
+        </TouchableOpacity>
+      )}
         <Text style={styles.content}>{post.postContent}</Text>
 
-        {post.fileUrl && (
+        {shouldTryImageRender(post.fileUrl) && !imageFailed && (
+          <Image
+            style={styles.postImage}
+            source={{ uri: post.fileUrl }}
+            resizeMode="cover"
+            onError={() => setImageFailed(true)}
+          />
+        )}
+
+        {post.fileUrl && (!shouldTryImageRender(post.fileUrl) || imageFailed) && (
           <Text
             style={styles.linkText}
             onPress={() => Linking.openURL(post.fileUrl)}
           >
-            {"Open Image File"}
+            {"Open Attachment"}
           </Text>
         )}
       </View>
@@ -166,9 +214,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 10,
   },
+  deleteButton: {
+    alignSelf: "flex-start",
+    backgroundColor: "#FEE2E2",
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+  },
+  deleteButtonText: {
+    color: "#B3261E",
+    fontWeight: "600",
+    fontSize: 12,
+  },
   content: {
     color: "black",
     fontSize: 15,
+  },
+  postImage: {
+    width: "100%",
+    height: 220,
+    borderRadius: 12,
+    marginTop: 12,
   },
   linkText: {
     color: "blue",

@@ -60,6 +60,9 @@ function PostListingsView({ navigation }) {
                 navigation={navigation}
                 post={item}
                 User={User}
+                onDeleted={(deletedPostId) =>
+                  setPosts((prevPosts) => prevPosts.filter((p) => p.id !== deletedPostId))
+                }
               />
             )}
             initialNumToRender={20}

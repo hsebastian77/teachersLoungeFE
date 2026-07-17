@@ -27,6 +27,7 @@ function PostView({ route, navigation }) {
   const [newComment, setNewComment] = useState("");
   const [likes, setLikes] = useState(Number(post.likes));
   const [isLiked, setIsLiked] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
 
   let likeImg = require("../../../../assets/like.png");
   let likeFilledImg = require("../../../../assets/like_filled.png");
@@ -47,6 +48,15 @@ function PostView({ route, navigation }) {
     const second = String(date.getSeconds()).padStart(2, "0");
 
     return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+  };
+
+  const isImageAttachment = (value) =>
+    typeof value === "string" && /\.(png|jpe?g|gif|webp|bmp|heic|heif|avif)(\?.*)?$/i.test(value);
+
+  const shouldTryImageRender = (value) => {
+    if (typeof value !== "string" || !value) return false;
+    if (isImageAttachment(value)) return true;
+    return value.includes("s3") && value.includes("x-id=GetObject");
   };
 
   useEffect(() => {
@@ -103,23 +113,38 @@ function PostView({ route, navigation }) {
     if (newComment.trim()) {
       await addComment(newComment, route.params.User.userUserName, null, post.id);
       setNewComment("");
-      getCommentsByPostId(post.id).then((commentsData) => setComments(commentsData));
+      getCommentsByPostId(post.id, route.params.User.userUserName).then((commentsData) => setComments(commentsData));
     }
   };
 
   const handleDeletePost = async () => {
     try {
-      await deletePost(post.id, post.fileUrl);
-      navigation.goBack();
+      const wasDeleted = await deletePost(post.id, post.fileUrl);
+      if (wasDeleted) {
+        navigation.goBack();
+      }
     } catch (error) {
       console.error("Error deleting post:", error);
     }
   };
 
+  const normalizeValue = (value) =>
+    typeof value === "string" ? value.trim().toLowerCase() : "";
+
+  const isAdmin = normalizeValue(route.params.User?.userRole) === "admin";
+  const postOwner = normalizeValue(post?.user);
+  const userIdentifiers = [
+    normalizeValue(route.params.User?.userUserName),
+    normalizeValue(route.params.User?.username),
+  ].filter(Boolean);
+  const isOwner = postOwner ? userIdentifiers.includes(postOwner) : false;
+
+  const canDelete = Boolean(route.params.User) && (isAdmin || isOwner);
+
   return (
     <SafeArea>
       <ScrollView style={styles.container}>
-      {(post.user === route.params.User.userUserName || route.params.User.userRole === "Admin") && (
+      {canDelete && (
   <TouchableOpacity onPress={handleDeletePost} style={styles.deletePostButton}>
     <Text>{"Delete Post"}</Text>
   </TouchableOpacity>
@@ -132,9 +157,17 @@ function PostView({ route, navigation }) {
               <Text style={styles.timestamp}>{formatPostTime(post.createdAt)}</Text>
               )}
             <Text style={styles.content}>{post.postContent}</Text>
-            {post.fileUrl && (
+            {shouldTryImageRender(post.fileUrl) && !imageFailed && (
+              <Image
+                style={styles.postImage}
+                source={{ uri: post.fileUrl }}
+                resizeMode="cover"
+                onError={() => setImageFailed(true)}
+              />
+            )}
+            {post.fileUrl && (!shouldTryImageRender(post.fileUrl) || imageFailed) && (
               <Text style={styles.linkText} onPress={() => Linking.openURL(post.fileUrl)}>
-                {"Open Image File"}
+                {"Open Attachment"}
               </Text>
             )}
           </View>
@@ -170,7 +203,13 @@ function PostView({ route, navigation }) {
               return (
                 <CommentView 
                   key={comment.id ? `comment-${comment.id}` : `comment-index-${index}`} 
-                  comment={comment} 
+                  comment={comment}
+                  User={route.params.User}
+                  onDeleted={(deletedCommentId) =>
+                    setComments((prevComments) =>
+                      prevComments.filter((c) => c.id !== deletedCommentId)
+                    )
+                  }
                 />
               );
             })
@@ -213,6 +252,12 @@ const styles = StyleSheet.create({
   content: {
     color: "black",
     fontSize: 18,
+  },
+  postImage: {
+    width: "100%",
+    height: 260,
+    borderRadius: 12,
+    marginTop: 12,
   },
   linkText: {
     color: "blue",
