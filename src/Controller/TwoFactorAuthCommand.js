@@ -1,5 +1,15 @@
 import { apiUrl } from '@env';
 
+const handleResponse = async (response, defaultMessage) => {
+  const data = await response.json();
+
+  if (!response.ok) {
+    return { ok: false, message: data.message || defaultMessage };
+  }
+
+  return { ok: true, data };
+};
+
 // Send OTP
 export const sendOTP = async (email, tempToken) => {
   try {
@@ -7,21 +17,32 @@ export const sendOTP = async (email, tempToken) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + tempToken,
+        Authorization: `Bearer ${tempToken}`,
       },
       body: JSON.stringify({ email }),
     });
 
-    const data = await response.json();
+    return await handleResponse(response, 'Failed to send verification code');
+  } catch {
+    return { ok: false, message: 'Network error sending code' };
+  }
+};
 
-    if (response.status !== 200) {
-      return { ok: false, message: data.message || 'Failed to send verification code' };
-    }
+// Resend OTP
+export const resendOTP = async (email, tempToken) => {
+  try {
+    const response = await fetch(`${apiUrl}/api/auth/resend-otp`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${tempToken}`,
+      },
+      body: JSON.stringify({ email }),
+    });
 
-    return { ok: true };
-
-  } catch (error) {
-    return { ok: false, message: 'Failed to send verification code' };
+    return await handleResponse(response, 'Failed to resend code');
+  } catch {
+    return { ok: false, message: 'Network error resending code' };
   }
 };
 
@@ -32,24 +53,21 @@ export const verifyOTP = async (email, otp, tempToken) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + tempToken,
+        Authorization: `Bearer ${tempToken}`,
       },
       body: JSON.stringify({ email, otp }),
     });
 
-    const data = await response.json();
+    const result = await handleResponse(response, 'Invalid verification code');
 
-    if (response.status !== 200) {
-      return { ok: false, message: data.message || 'Invalid verification code' };
-    }
+    if (!result.ok) return result;
 
     return {
       ok: true,
-      user: data.user,
-      token: data.token,
+      user: result.data.user,
+      token: result.data.token,
     };
-
-  } catch (error) {
-    return { ok: false, message: 'Failed to verify code' };
+  } catch {
+    return { ok: false, message: 'Network error verifying code' };
   }
 };

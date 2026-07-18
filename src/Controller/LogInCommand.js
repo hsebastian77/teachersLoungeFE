@@ -1,6 +1,30 @@
 import User from "../Model/User";
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from "expo-secure-store";
 import { apiUrl, loginRoute } from "@env";
+
+const getFullAuthToken = (data) => {
+  if (typeof data?.token === "string" && data.token) return data.token;
+  if (typeof data?.accessToken === "string" && data.accessToken) return data.accessToken;
+  return null;
+};
+
+const getMfaToken = (data) => {
+  if (typeof data?.mfaToken === "string" && data.mfaToken) return data.mfaToken;
+  if (typeof data?.preAuthToken === "string" && data.preAuthToken) return data.preAuthToken;
+  if (typeof data?.challengeToken === "string" && data.challengeToken) return data.challengeToken;
+  return null;
+};
+
+const safeParseJson = async (response) => {
+  const text = await response.text();
+  if (!text) return {};
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { message: text };
+  }
+};
 
 // Logs user into the app based on their email and password
 async function login(email, password) {
@@ -15,12 +39,18 @@ async function login(email, password) {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ username: email, password: password }),
+    // Send all formats for backend compatibility
+    body: JSON.stringify({
+      identifier: email,
+      username: email,
+      email: email,
+      password: password,
+    }),
   };
 
   try {
     const response = await fetch(urlLogin, reqOptions);
-    const data = await response.json();
+    const data = await safeParseJson(response);
 
     if (response.status !== 200) {
       return { ok: false, message: data.message || "Unable to sign in" };
@@ -30,7 +60,7 @@ async function login(email, password) {
       return { ok: false, message: data.message || "Unable to sign in" };
     }
 
-    // Handle school info fallback
+    // Build user
     const schoolInfo = data.user.SchoolName || data.user.SchoolID || "";
 
     const user = new User(
@@ -43,11 +73,7 @@ async function login(email, password) {
       data.user.Username
     );
 
-    // Store token + username
-    await SecureStore.setItemAsync("token", data.token);
-    await SecureStore.setItemAsync("username", email);
-
-    // Only approved users can login
+    // Role check
     if (user.userRole !== "Approved" && user.userRole !== "Admin") {
       return {
         ok: false,
@@ -55,21 +81,69 @@ async function login(email, password) {
       };
     }
 
-    // Check if admin bypasses 2FA
-    const requires2FA = email.toLowerCase() !== "admin@admin.com";
+    const fullToken = getFullAuthToken(data);
+    const mfaToken = getMfaToken(data);
+
+    await SecureStore.setItemAsync("userEmail", user.userEmail);
+
+    const emailVerified =
+      data?.emailVerified ??
+      data?.isEmailVerified ??
+      data?.user?.emailVerified ??
+      data?.user?.isEmailVerified ??
+      data?.user?.EmailVerified;
+
+    const requires2FA =
+      emailVerified === false ||
+      data?.requiresEmailVerification === true ||
+      data?.requiresVerification === true ||
+      data?.status === "MFA_REQUIRED" ||
+      data?.requiresMFA === true ||
+      data?.mfaRequired === true ||
+      (typeof data.requires2FA === "boolean" ? data.requires2FA : false);
+
+    if (requires2FA) {
+      if (mfaToken) {
+        await SecureStore.setItemAsync("token", mfaToken);
+      } else if (fullToken) {
+        await SecureStore.setItemAsync("token", fullToken);
+      } else {
+        return {
+          ok: false,
+          message: "MFA required but no token provided",
+        };
+      }
+
+      return {
+        ok: true,
+        requires2FA: true,
+        user,
+        email: user.userEmail,
+      };
+    }
+
+    if (!fullToken) {
+      return {
+        ok: false,
+        message: "Login succeeded but no token provided",
+      };
+    }
+
+    await SecureStore.setItemAsync("token", fullToken);
 
     return {
       ok: true,
       user,
-      requires2FA,
-      email,
-      token: data.token,
+      requires2FA: false,
+      email: user.userEmail,
+      token: fullToken,
     };
 
   } catch (error) {
     return {
       ok: false,
-      message: "Unable to connect to server. Please check your internet connection.",
+      message:
+        "Unable to connect to server. Please check your internet connection.",
     };
   }
 }

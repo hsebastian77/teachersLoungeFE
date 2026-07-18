@@ -2,26 +2,49 @@ import { apiUrl } from '@env';
 import * as SecureStore from 'expo-secure-store';
 import User from '../Model/User';
 
-// Shared success handler
-const processSocialLogin = async (data) => {
-  if (!data.user) {
-    return { ok: false, message: "Failed to retrieve user information" };
-  }
+// Extract full session token
+const getFullAuthToken = (data) => {
+  if (typeof data?.token === 'string' && data.token) return data.token;
+  if (typeof data?.accessToken === 'string' && data.accessToken) return data.accessToken;
+  return null;
+};
 
-  const schoolInfo = data.user.SchoolName || data.user.SchoolID || "";
+// Extract MFA/pre-auth token
+const getMfaToken = (data) => {
+  if (typeof data?.mfaToken === 'string' && data.mfaToken) return data.mfaToken;
+  if (typeof data?.preAuthToken === 'string' && data.preAuthToken) return data.preAuthToken;
+  if (typeof data?.challengeToken === 'string' && data.challengeToken) return data.challengeToken;
+  return null;
+};
 
-  const user = new User(
-    data.user.Email,
-    data.user.FirstName,
-    data.user.LastName,
-    schoolInfo,
-    data.user.Role,
-    data.user.ProfilePicLink
-  );
+const safeParseJson = async (response) => {
+  const text = await response.text();
+  if (!text) return {};
 
   try {
-    await SecureStore.setItemAsync("token", data.token);
-    await SecureStore.setItemAsync("username", data.user.Email);
+    return JSON.parse(text);
+  } catch {
+    return { message: text };
+  }
+};
+
+// Shared processor for all social logins
+const processSocialLogin = async (data) => {
+  try {
+    if (!data.user) {
+      return { ok: false, message: "Failed to retrieve user information" };
+    }
+
+    const schoolInfo = data.user.SchoolName || data.user.SchoolID || "";
+
+    const user = new User(
+      data.user.Email,
+      data.user.FirstName,
+      data.user.LastName,
+      schoolInfo,
+      data.user.Role,
+      data.user.ProfilePicLink
+    );
 
     if (user.userRole !== "Approved" && user.userRole !== "Admin") {
       return {
@@ -30,14 +53,46 @@ const processSocialLogin = async (data) => {
       };
     }
 
-    const isAdmin = data.user.Email.toLowerCase() === "admin@admin.com";
-    const requires2FA = !isAdmin && data.requires2FA;
+    const email = data.user.Email || "";
+    const fullToken = getFullAuthToken(data);
+    const mfaToken = getMfaToken(data);
+
+    const backendRequiresMfa =
+      data?.status === "MFA_REQUIRED" ||
+      data?.requiresMFA === true ||
+      data?.mfaRequired === true ||
+      data?.requires2FA === true;
+
+    const requires2FA =
+      typeof data.requires2FA === "boolean"
+        ? data.requires2FA
+        : backendRequiresMfa;
+
+    // If 2FA required, return temp token only
+    if (requires2FA) {
+      return {
+        ok: true,
+        requires2FA: true,
+        email,
+        tempToken: mfaToken || fullToken,
+      };
+    }
+
+    // Normal login, persist token
+    if (fullToken) {
+      await SecureStore.setItemAsync("token", fullToken);
+      await SecureStore.setItemAsync("username", email);
+
+      return {
+        ok: true,
+        user,
+        requires2FA: false,
+      };
+    }
 
     return {
-      ok: true,
-      user,
-      requires2FA,
-      email: data.user.Email,
+      ok: false,
+      message: "Login succeeded but no token was provided",
     };
 
   } catch (error) {
@@ -62,7 +117,7 @@ export const handleGoogleLogin = async (authorizationCode, redirectUri, codeVeri
       }),
     });
 
-    const data = await response.json();
+    const data = await safeParseJson(response);
 
     if (response.status !== 200) {
       return { ok: false, message: data.message || 'Failed to login with Google' };
@@ -71,6 +126,7 @@ export const handleGoogleLogin = async (authorizationCode, redirectUri, codeVeri
     return await processSocialLogin(data);
 
   } catch (error) {
+    console.error("Google login error:", error);
     return { ok: false, message: 'Failed to login with Google' };
   }
 };
@@ -84,7 +140,7 @@ export const handleLinkedInLogin = async (code) => {
       body: JSON.stringify({ code }),
     });
 
-    const data = await response.json();
+    const data = await safeParseJson(response);
 
     if (response.status !== 200) {
       return { ok: false, message: data.message || 'Failed to login with LinkedIn' };
@@ -105,7 +161,7 @@ export const handleAppleLogin = async (credential) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         provider: 'apple',
-        email: credential.email,
+        email: credential.email || undefined,
         firstName: credential.fullName?.givenName,
         lastName: credential.fullName?.familyName,
         providerId: credential.user,
@@ -113,7 +169,7 @@ export const handleAppleLogin = async (credential) => {
       }),
     });
 
-    const data = await response.json();
+    const data = await safeParseJson(response);
 
     if (response.status !== 200) {
       return { ok: false, message: data.message || 'Failed to login with Apple' };

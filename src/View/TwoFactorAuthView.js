@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import * as SecureStore from 'expo-secure-store';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,16 +6,27 @@ import {
   Button,
   Alert,
   ActivityIndicator,
+  TouchableOpacity
 } from 'react-native';
-
+import * as SecureStore from 'expo-secure-store';
 import { useAuth } from '../context/AuthContext';
-import { verifyOTP } from '../Controller/TwoFactorAuthCommand';
+import { verifyOTP, resendOTP } from '../Controller/TwoFactorAuthCommand';
 
 const TwoFactorAuthView = () => {
   const { pendingAuth, login } = useAuth();
 
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  // Cooldown timer
+  useEffect(() => {
+    if (cooldown <= 0) return;
+
+    const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
 
   const handleVerify = async () => {
     const trimmedCode = code.trim();
@@ -27,63 +37,95 @@ const TwoFactorAuthView = () => {
     }
 
     if (!pendingAuth?.email || !pendingAuth?.tempToken) {
-      Alert.alert('Error', 'Authentication session expired. Please log in again.');
+      Alert.alert('Error', 'Session expired. Please log in again.');
       return;
     }
 
     try {
       setLoading(true);
 
-      const { email, tempToken } = pendingAuth;
-
-      const result = await verifyOTP(email, trimmedCode, tempToken);
+      const result = await verifyOTP(
+        pendingAuth.email,
+        trimmedCode,
+        pendingAuth.tempToken
+      );
 
       if (!result?.ok) {
-        throw new Error(result?.message || 'Invalid verification code.');
+        throw new Error(result?.message || 'Invalid code.');
       }
 
       await SecureStore.setItemAsync("token", result.token);
-      login(result.user); // sets user
+      login(result.user);
+
     } catch (error) {
-      Alert.alert(
-        'Verification Failed',
-        error?.message || 'Something went wrong. Please try again.'
-      );
+      Alert.alert('Verification Failed', error.message);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleResend = async () => {
+    if (cooldown > 0) return;
+
+    if (!pendingAuth?.email || !pendingAuth?.tempToken) {
+      Alert.alert('Error', 'Session expired. Please log in again.');
+      return;
+    }
+
+    try {
+      setResending(true);
+
+      const result = await resendOTP(
+        pendingAuth.email,
+        pendingAuth.tempToken
+      );
+
+      if (!result.ok) {
+        throw new Error(result.message);
+      }
+
+      Alert.alert('Success', 'Verification code resent.');
+      setCooldown(30);
+
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setResending(false);
+    }
+  };
+
   return (
     <View style={{ padding: 20 }}>
-      <Text style={{ marginBottom: 10 }}>
-        Enter the verification code
-      </Text>
+      <Text>Enter verification code</Text>
 
       <TextInput
         value={code}
         onChangeText={setCode}
-        placeholder="6-digit code"
         keyboardType="numeric"
-        autoCapitalize="none"
-        style={{
-          borderWidth: 1,
-          borderColor: '#ccc',
-          padding: 10,
-          marginBottom: 20,
-          borderRadius: 5,
-        }}
+        placeholder="6-digit code"
+        style={{ borderWidth: 1, padding: 10, marginVertical: 10 }}
       />
 
       {loading ? (
         <ActivityIndicator />
       ) : (
-        <Button
-          title="Verify"
-          onPress={handleVerify}
-          disabled={!code.trim()}
-        />
+        <Button title="Verify" onPress={handleVerify} />
       )}
+
+      <View style={{ marginTop: 20 }}>
+        <TouchableOpacity
+          onPress={handleResend}
+          disabled={cooldown > 0 || resending}
+        >
+          <Text style={{ color: cooldown > 0 ? 'gray' : 'blue' }}>
+            {resending
+              ? "Sending..."
+              : cooldown > 0
+              ? `Resend code in ${cooldown}s`
+              : "Resend Code"}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };

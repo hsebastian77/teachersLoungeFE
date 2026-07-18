@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { FlatList, TextInput, Text, View, TouchableOpacity } from "react-native";
+import {
+  FlatList,
+  TextInput,
+  Text,
+  View,
+  TouchableOpacity,
+} from "react-native";
 import SafeArea from "../../SafeArea";
 import { useAuth } from "../../../context/AuthContext";
 import { searchUser } from "../../../Controller/SearchUserCommand";
@@ -13,30 +19,42 @@ function SearchUserView({ navigation }) {
 
   useEffect(() => {
     const fetchUsers = async () => {
-      try {
-        const array = await searchUser(searchQuery);
+      if (!searchQuery || searchQuery.length < 2) {
+        setListOfUsers([]);
+        return;
+      }
 
-        // remove current user from results
-        const filtered = array.filter(
-          (u) => u.email !== user?.userUserName
+      try {
+        const results = await searchUser(searchQuery);
+
+        const normalizedCurrentUser =
+          user?.userUserName?.trim().toLowerCase();
+
+        // Remove current user from results
+        const filtered = results.filter(
+          (u) =>
+            u.email?.trim().toLowerCase() !== normalizedCurrentUser
         );
 
         setListOfUsers(filtered);
       } catch (error) {
-        console.error("Error fetching users: ", error);
+        console.error("Error fetching users:", error);
       }
     };
 
     fetchUsers();
-  }, [searchQuery, user?.userUserName]);
+  }, [searchQuery, user]);
 
   return (
     <SafeArea>
       <View style={App_StyleSheet.content}>
         <TextInput
           placeholder="Search a User"
+          value={searchQuery}
           onChangeText={setSearchQuery}
           style={App_StyleSheet.search}
+          autoCapitalize="none"
+          autoCorrect={false}
         />
 
         <FlatList
@@ -44,7 +62,11 @@ function SearchUserView({ navigation }) {
           keyExtractor={(item) => item.email}
           style={App_StyleSheet.list}
           ListEmptyComponent={
-            <Text style={App_StyleSheet.text}>No users found</Text>
+            <Text style={App_StyleSheet.text}>
+              {searchQuery.length < 2
+                ? "Type at least 2 characters to search"
+                : "No users found"}
+            </Text>
           }
           renderItem={({ item }) => (
             <TouchableOpacity

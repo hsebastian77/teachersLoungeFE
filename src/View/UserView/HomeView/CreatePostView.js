@@ -4,6 +4,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ScrollView,
 } from "react-native";
 import { SelectList } from "react-native-dropdown-select-list";
 import { useRoute, useIsFocused } from "@react-navigation/native";
@@ -11,21 +12,58 @@ import { TextInput } from "react-native-paper";
 import SafeArea from "../../SafeArea.js";
 import CreatePost from "../../../Controller/CreatePostCommand.js";
 import { createCommunityPost } from "../../../Controller/CommunitiesManager.js";
-import UploadFileCommand from "../../../Controller/UploadFileCommand.js";
 import { selectDoc, selectPic } from "../../../Controller/DocumentPicker.js";
 import App_StyleSheet from "../../../Styles/App_StyleSheet.js";
 import { getUserCommunities } from "../../../Controller/CommunitiesManager.js";
+import File from "../../../Model/File.js";
+
+const EMPTY_FILE = new File("", "", "");
+
+const isValidHttpUrl = (value) => {
+  try {
+    const parsedUrl = new URL(value);
+    return parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:";
+  } catch (error) {
+    return false;
+  }
+};
+
+const inferAttachmentType = (value) => {
+  if (/\.(png|jpe?g|gif|webp|bmp|heic|heif|avif)(\?.*)?$/i.test(value)) {
+    return "image";
+  }
+
+  return "link";
+};
+
+const inferAttachmentName = (value, explicitName) => {
+  if (explicitName.trim()) {
+    return explicitName.trim();
+  }
+
+  try {
+    const parsedUrl = new URL(value);
+    const pathName = parsedUrl.pathname.split("/").filter(Boolean).pop();
+    return pathName || parsedUrl.hostname;
+  } catch (error) {
+    return value;
+  }
+};
 
 function CreatePostView({ navigation }) {
   const route = useRoute();
   const isFocused = useIsFocused();
   const User = route.params?.User;
-  const [file, setFile] = useState("");
+  const [file, setFile] = useState(EMPTY_FILE);
   const [postContent, setPostContent] = useState("");
   const [postTitle, setPostTitle] = useState("");
+  const [attachmentUrl, setAttachmentUrl] = useState("");
+  const [attachmentName, setAttachmentName] = useState("");
   const [communities, setCommunities] = useState([]);
   const [selectedCommunityId, setSelectedCommunityId] = useState(null);
   const [selectedCommunityName, setSelectedCommunityName] = useState("");
+  const [submitError, setSubmitError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function fetchCommunities() {
     const data = await getUserCommunities(route.params?.User?.userUserName);
@@ -38,11 +76,14 @@ function CreatePostView({ navigation }) {
 
   useEffect(() => {
     if (isFocused) {
-      setFile("");
+      setFile(EMPTY_FILE);
       setPostContent("");
       setPostTitle("");
+      setAttachmentUrl("");
+      setAttachmentName("");
       setSelectedCommunityId(null);
       setSelectedCommunityName("");
+      setSubmitError("");
     }
   }, [isFocused]);
 
@@ -50,32 +91,149 @@ function CreatePostView({ navigation }) {
     fetchCommunities();
   }, []);
 
+  const buildAttachment = () => {
+    const trimmedAttachmentUrl = attachmentUrl.trim();
+    if (!trimmedAttachmentUrl) {
+      return file;
+    }
+
+    return new File(
+      trimmedAttachmentUrl,
+      inferAttachmentName(trimmedAttachmentUrl, attachmentName),
+      inferAttachmentType(trimmedAttachmentUrl)
+    );
+  };
+
+  const handleSubmit = async () => {
+    if (!User) {
+      setSubmitError("User information is missing.");
+      return;
+    }
+
+    if (!postContent.trim()) {
+      setSubmitError("Post content cannot be blank.");
+      return;
+    }
+
+    const trimmedAttachmentUrl = attachmentUrl.trim();
+    if (trimmedAttachmentUrl && !isValidHttpUrl(trimmedAttachmentUrl)) {
+      setSubmitError("Attachment URL must start with http:// or https://.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError("");
+
+    const attachment = buildAttachment();
+
+    try {
+      if (selectedCommunityId && selectedCommunityId !== "None") {
+        await createCommunityPost(
+          { navigation },
+          postTitle,
+          postContent.trim(),
+          attachment,
+          User,
+          selectedCommunityId
+        );
+      } else {
+        await CreatePost({ navigation }, postTitle, postContent.trim(), attachment, User);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <SafeArea>
-      <View style={styles.container}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.containerContent}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.card}>
-          <Text style={styles.label}>Post Title:</Text>
+          <Text style={styles.title}>Create Post</Text>
+          <Text style={styles.subtitle}>Share text, links, files, or images in one place.</Text>
+
+          <Text style={styles.label}>Post Title</Text>
           <TextInput
             style={styles.textInput}
             placeholder="Write a title for your post..."
             onChangeText={(value) => setPostTitle(value)}
             value={postTitle}
-            underlineColor="#808080"
-            activeUnderlineColor="#808080"
+            underlineColor="transparent"
+            activeUnderlineColor="transparent"
             multiline={false}
           />
 
-          <Text style={styles.label}>Post Content:</Text>
+          <Text style={styles.label}>Post Content</Text>
           <TextInput
-            style={[styles.textInput]}
-            placeholder="Write a post..."
+            style={styles.textArea}
+            placeholder="Write your post..."
             onChangeText={(value) => setPostContent(value)}
             value={postContent}
-            underlineColor="#808080"
-            activeUnderlineColor="#808080"
+            underlineColor="transparent"
+            activeUnderlineColor="transparent"
             multiline
           />
-          <Text style={styles.label}>Select a community (optional):</Text>
+
+          <Text style={styles.sectionTitle}>Optional Attachment</Text>
+
+          <Text style={styles.label}>Image or file URL</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="https://example.com/image.png"
+            onChangeText={setAttachmentUrl}
+            value={attachmentUrl}
+            underlineColor="transparent"
+            activeUnderlineColor="transparent"
+            multiline={false}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+
+          <Text style={styles.label}>Attachment display name</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Lecture notes or image title"
+            onChangeText={setAttachmentName}
+            value={attachmentName}
+            underlineColor="transparent"
+            activeUnderlineColor="transparent"
+            multiline={false}
+          />
+
+          <View style={styles.attachmentActions}>
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={async () => {
+                let selectedFile = await selectDoc();
+                setFile(selectedFile || EMPTY_FILE);
+              }}
+            >
+              <Text style={styles.secondaryButtonText}>Upload File</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={async () => {
+                let selectedFile = await selectPic(false);
+                setFile(selectedFile || EMPTY_FILE);
+              }}
+            >
+              <Text style={styles.secondaryButtonText}>Upload Image</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.attachmentStatusText}>
+            {attachmentUrl.trim()
+              ? `Using URL: ${attachmentUrl.trim()}`
+              : file.url
+                ? `Uploaded: ${file.name || file.url}`
+                : "No attachment selected"}
+          </Text>
+
+          <Text style={styles.sectionTitle}>Community (Optional)</Text>
           <SelectList
             setSelected={(value) => {
               if (value === null || value === "None") {
@@ -100,45 +258,19 @@ function CreatePostView({ navigation }) {
             boxStyles={styles.selectBox}
           />
 
-          <TouchableOpacity
-            style={styles.smallButton}
-            onPress={async () => {
-              let file = await selectDoc();
-              setFile(file);
-            }}
-          >
-            <Text style={styles.smallButtonText}>
-              {file.url ? file.url : "No file uploaded"}
-            </Text>
-          </TouchableOpacity>
+          {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
 
           <View style={styles.buttonsContainer}>
             <TouchableOpacity
-              style={App_StyleSheet.medium_button}
-              onPress={() => {
-                if (!User) {
-                  console.log("CreatePostView: User is missing");
-                  return;
-                } 
-                if (selectedCommunityId && selectedCommunityId !== "None") {
-                  createCommunityPost(
-                    { navigation },
-                    postTitle,
-                    postContent,
-                    file,
-                    User,
-                    selectedCommunityId
-                  );
-                } else {
-                  CreatePost({ navigation }, postTitle, postContent, file, User);
-                }
-              }}
+              style={styles.primaryButton}
+              onPress={handleSubmit}
+              disabled={isSubmitting}
             >
-              <Text style={App_StyleSheet.text}>Submit</Text>
+              <Text style={styles.primaryButtonText}>{isSubmitting ? "Submitting..." : "Post"}</Text>
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </ScrollView>
     </SafeArea>
   );
 }
@@ -146,56 +278,131 @@ function CreatePostView({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+  },
+  containerContent: {
+    paddingVertical: 18,
+    paddingHorizontal: 14,
   },
   card: {
-    width: "90%",
-    height: "90%",
-    maxWidth: 600,
+    width: "100%",
+    maxWidth: 720,
+    alignSelf: "center",
     backgroundColor: "#FFFFFF",
-    borderRadius: 10,
-    padding: 15,
-    justifyContent: "flex-start",
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "#DCE6FF",
+    shadowColor: "#24488F",
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#243B77",
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 13,
+    color: "#5A6A8D",
+    marginBottom: 14,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    color: "#243B77",
+    fontWeight: "700",
+    marginBottom: 8,
+    marginTop: 6,
   },
   label: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: "600",
-    color: "#333333",
-    marginBottom: 5,
-    marginLeft: 10,
+    color: "#324C8D",
+    marginBottom: 6,
   },
   selectBox: {
-    height: 50,
-    marginBottom: 20,
+    minHeight: 46,
+    marginBottom: 14,
     width: "100%",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#C7D6FF",
+    backgroundColor: "#FFFFFF",
   },
   textInput: {
     backgroundColor: "#FFFFFF",
-    padding: 5,
-    borderRadius: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
     width: "100%",
     borderWidth: 1,
-    borderColor: "#808080",
-    marginBottom: 20,
+    borderColor: "#C7D6FF",
+    marginBottom: 12,
+    minHeight: 46,
   },
-  smallButton: {
-    backgroundColor: "#E7ECFE",
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 5,
-    marginBottom: 20,
+  textArea: {
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "#C7D6FF",
+    marginBottom: 12,
+    minHeight: 110,
+  },
+  attachmentActions: {
     flexDirection: "row",
-    alignItems: "center",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginTop: 4,
+    marginBottom: 8,
   },
-  smallButtonText: {
-    color: "#4A90E2",
+  secondaryButton: {
+    width: "48%",
+    minHeight: 42,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#BFD0FF",
+    backgroundColor: "#EEF3FF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  secondaryButtonText: {
+    color: "#31539F",
     fontSize: 14,
+    fontWeight: "600",
+  },
+  attachmentStatusText: {
+    color: "#5D6B8C",
+    fontSize: 13,
+    marginBottom: 12,
+  },
+  errorText: {
+    color: "#B3261E",
+    fontSize: 13,
+    marginBottom: 12,
   },
   buttonsContainer: {
-    marginTop: 20,
+    marginTop: 8,
     alignItems: "center",
     width: "100%",
+  },
+  primaryButton: {
+    width: "100%",
+    minHeight: 46,
+    borderRadius: 24,
+    backgroundColor: "#6382E8",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  primaryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "700",
   },
 });
 

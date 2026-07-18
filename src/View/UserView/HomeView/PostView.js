@@ -12,44 +12,68 @@ import {
   Alert,
   Linking
 } from "react-native";
-import { getCommentsByPostId, addComment } from "../../../Controller/PostManager";
+import {
+  getCommentsByPostId,
+  addComment,
+  deletePost
+} from "../../../Controller/PostManager";
 import CommentView from "./CommentView";
 import SafeArea from "../../SafeArea";
 import { likePost } from "../../../Controller/LikePostCommand";
 import { unlikePost } from "../../../Controller/UnlikePostCommand";
 import { checkLikePost } from "../../../Controller/CheckLikedPostCommand";
-import { deletePost } from "../../../Controller/PostManager";
-import { useFocusEffect } from '@react-navigation/native';
 
 function PostView({ route, navigation }) {
   const { user } = useAuth();
-  
+
   const [post, setPost] = useState(route.params?.post);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
-  const [likes, setLikes] = useState(Number(post.likes));
+  const [likes, setLikes] = useState(Number(post?.likes || 0));
   const [isLiked, setIsLiked] = useState(false);
-
-  let likeImg = require("../../../../assets/like.png");
-  let likeFilledImg = require("../../../../assets/like_filled.png");
-  let commentImg = require("../../../../assets/comment.png");
+  const [imageFailed, setImageFailed] = useState(false);
 
   if (!user || !post) return null;
+
+  const formatPostTime = (createdAt) => {
+    if (!createdAt) return "";
+    const date = new Date(createdAt);
+    return date.toLocaleString();
+  };
+
+  const isImageAttachment = (value) =>
+    typeof value === "string" &&
+    /\.(png|jpe?g|gif|webp|bmp|heic|heif|avif)(\?.*)?$/i.test(value);
+
+  const shouldTryImageRender = (value) => {
+    if (!value) return false;
+    return isImageAttachment(value) || value.includes("s3");
+  };
+
+  const normalizeValue = (value) =>
+    typeof value === "string" ? value.trim().toLowerCase() : "";
+
+  const isAdmin = normalizeValue(user?.userRole) === "admin";
+  const postOwner = normalizeValue(post?.user);
+
+  const userIdentifiers = [
+    normalizeValue(user?.userUserName),
+    normalizeValue(user?.username),
+  ].filter(Boolean);
+
+  const isOwner = postOwner
+    ? userIdentifiers.includes(postOwner)
+    : false;
+
+  const canDelete = isAdmin || isOwner;
 
   useEffect(() => {
     if (post?.id && user?.userUserName) {
       getCommentsByPostId(post.id, user.userUserName).then(setComments);
 
-      async function fetchLikeData() {
-        try {
-          const liked = await checkLikePost(post, user.userUserName);
-          setIsLiked(liked);
-        } catch (error) {
-          console.error("Error fetching like data:", error);
-        }
-      }
-
-      fetchLikeData();
+      checkLikePost(post, user.userUserName)
+        .then(setIsLiked)
+        .catch((err) => console.error("Like check failed:", err));
     }
   }, [post, user]);
 
@@ -58,87 +82,119 @@ function PostView({ route, navigation }) {
       let updatedLikes = Number(likes);
 
       if (isLiked) {
-        const unlikeSuccess = await unlikePost(post, user.userUserName);
-        if (unlikeSuccess) {
+        const success = await unlikePost(post, user.userUserName);
+        if (success) {
           setIsLiked(false);
-          updatedLikes -= 1;
+          updatedLikes--;
         }
       } else {
-        const likeSuccess = await likePost(post, user.userUserName);
-        if (likeSuccess) {
+        const success = await likePost(post, user.userUserName);
+        if (success) {
           setIsLiked(true);
-          updatedLikes += 1;
+          updatedLikes++;
         }
       }
 
       setLikes(updatedLikes);
-      setPost((prevPost) => ({ ...prevPost, likes: updatedLikes }));
-
-      if (navigation.canGoBack()) {
-        navigation.setParams({
-          updatedPost: { ...post, likes: updatedLikes }
-        });
-      }
+      setPost((prev) => ({ ...prev, likes: updatedLikes }));
 
     } catch (error) {
-      console.error("Error handling like/unlike:", error);
-      Alert.alert("Error", "Something went wrong. Please try again.");
+      console.error("Like toggle error:", error);
+      Alert.alert("Error", "Something went wrong.");
     }
   };
 
-
   const handleAddComment = async () => {
-    if (newComment.trim()) {
+    if (!newComment.trim()) return;
+
+    try {
       await addComment(newComment, user.userUserName, null, post.id);
       setNewComment("");
-      getCommentsByPostId(post.id).then((commentsData) => setComments(commentsData));
+
+      const updated = await getCommentsByPostId(post.id, user.userUserName);
+      setComments(updated);
+
+    } catch (err) {
+      console.error("Add comment failed:", err);
     }
   };
 
   const handleDeletePost = async () => {
     try {
-      await deletePost(post.id, post.fileUrl);
-      navigation.goBack();
+      const wasDeleted = await deletePost(post.id, post.fileUrl);
+      if (wasDeleted) navigation.goBack();
     } catch (error) {
-      console.error("Error deleting post:", error);
+      console.error("Delete post error:", error);
     }
   };
 
   return (
     <SafeArea>
       <ScrollView style={styles.container}>
-      {(post.user === user.userUserName || user.userRole === "Admin") && (
-  <TouchableOpacity onPress={handleDeletePost} style={styles.deletePostButton}>
-    <Text>{"Delete Post"}</Text>
-  </TouchableOpacity>
-)}
+
+        {canDelete && (
+          <TouchableOpacity onPress={handleDeletePost} style={styles.deletePostButton}>
+            <Text>Delete Post</Text>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.post}>
           <View style={styles.text}>
-            <Text style={styles.title}>{post.title || "no title"}</Text>
+            <Text style={styles.title}>{post.title || "No title"}</Text>
+
+            {post.createdAt && (
+              <Text style={styles.timestamp}>
+                {formatPostTime(post.createdAt)}
+              </Text>
+            )}
+
             <Text style={styles.content}>{post.postContent}</Text>
-            {post.fileUrl && (
-              <Text style={styles.linkText} onPress={() => Linking.openURL(post.fileUrl)}>
-                {"Open Image File"}
+
+            {shouldTryImageRender(post.fileUrl) && !imageFailed && (
+              <Image
+                style={styles.postImage}
+                source={{ uri: post.fileUrl }}
+                onError={() => setImageFailed(true)}
+              />
+            )}
+
+            {post.fileUrl && (!shouldTryImageRender(post.fileUrl) || imageFailed) && (
+              <Text
+                style={styles.linkText}
+                onPress={() => Linking.openURL(post.fileUrl)}
+              >
+                Open Attachment
               </Text>
             )}
           </View>
+
           <View style={styles.footer}>
             <View style={styles.footerSection}>
               <TouchableOpacity onPress={handleLikeToggle}>
-                <Image style={styles.icon} source={isLiked ? likeFilledImg : likeImg} />
+                <Image
+                  style={styles.icon}
+                  source={
+                    isLiked
+                      ? require("../../../../assets/like_filled.png")
+                      : require("../../../../assets/like.png")
+                  }
+                />
               </TouchableOpacity>
               <Text>{likes}</Text>
             </View>
 
             <View style={styles.footerSection}>
-              <Image style={styles.icon} source={commentImg} />
+              <Image
+                style={styles.icon}
+                source={require("../../../../assets/comment.png")}
+              />
               <Text>{comments.length}</Text>
             </View>
 
             <Text style={styles.communityName}>{post.user}</Text>
           </View>
         </View>
+
         <View style={styles.newComment}>
           <TextInput
             style={styles.newCommentText}
@@ -148,26 +204,29 @@ function PostView({ route, navigation }) {
           />
           <Button title="+" onPress={handleAddComment} />
         </View>
+
         <View>
           {comments.length > 0 ? (
-            comments.map((comment, index) => {
-              console.log('Comment rendering:', comment.id || `fallback-${index}`);
-              return (
-                <CommentView 
-                  key={comment.id ? `comment-${comment.id}` : `comment-index-${index}`} 
-                  comment={comment} 
-                />
-              );
-            })
+            comments.map((comment, index) => (
+              <CommentView
+                key={comment.id || index}
+                comment={comment}
+                onDeleted={(deletedId) =>
+                  setComments((prev) =>
+                    prev.filter((c) => c.id !== deletedId)
+                  )
+                }
+              />
+            ))
           ) : (
             <Text>No comments yet.</Text>
           )}
         </View>
+
       </ScrollView>
     </SafeArea>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {
@@ -190,9 +249,20 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 10,
   },
+  timestamp: {
+    color: "#666666",
+    fontSize: 14,
+    marginBottom: 10,
+  },
   content: {
     color: "black",
     fontSize: 18,
+  },
+  postImage: {
+    width: "100%",
+    height: 260,
+    borderRadius: 12,
+    marginTop: 12,
   },
   linkText: {
     color: "blue",

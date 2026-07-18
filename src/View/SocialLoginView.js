@@ -1,68 +1,75 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert, Platform } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
-import * as WebBrowser from 'expo-web-browser';
-import * as AuthSession from 'expo-auth-session';
-import * as AppleAuthentication from 'expo-apple-authentication';
-import App_StyleSheet from '../Styles/App_StyleSheet';
-import { apiUrl } from '@env';
-import * as SecureStore from 'expo-secure-store';
-import User from '../Model/User';
-import { useAuth } from '../context/AuthContext';
+import React, { useEffect } from "react";
+import { View, Text, TouchableOpacity, Alert, Platform } from "react-native";
+import { FontAwesome } from "@expo/vector-icons";
+import * as WebBrowser from "expo-web-browser";
+import * as AuthSession from "expo-auth-session";
+import * as AppleAuthentication from "expo-apple-authentication";
+import App_StyleSheet from "../Styles/App_StyleSheet";
+
+import {
+  loginWithGoogle,
+  loginWithLinkedIn,
+  loginWithApple,
+} from "../Controller/SocialLoginCommand";
+
+import { useAuth } from "../context/AuthContext";
+import { useNavigation } from "@react-navigation/native";
 
 WebBrowser.maybeCompleteAuthSession();
 
-// Google OAuth configuration
+// Google OAuth
 const GOOGLE_CLIENT_ID = Platform.select({
-  ios: '503056180344-b2mc69o5h958afpkoclbjl6pk3lcc6dl.apps.googleusercontent.com',
-  android: '503056180344-vfqo4hkmm4qoe1e2a5b3t4itpqs8sbcf.apps.googleusercontent.com',
+  ios: "503056180344-b2mc69o5h958afpkoclbjl6pk3lcc6dl.apps.googleusercontent.com",
+  android:
+    "503056180344-vfqo4hkmm4qoe1e2a5b3t4itpqs8sbcf.apps.googleusercontent.com",
 });
+
 const GOOGLE_REDIRECT_URI = AuthSession.makeRedirectUri({
-  scheme: 'teacherslounge'
+  scheme: "teacherslounge",
 });
 
-// LinkedIn OAuth configuration
-const LINKEDIN_CLIENT_ID = 'YOUR_LINKEDIN_CLIENT_ID';
-const LINKEDIN_CLIENT_SECRET = 'YOUR_LINKEDIN_CLIENT_SECRET';
+// LinkedIn OAuth
+const LINKEDIN_CLIENT_ID = "YOUR_LINKEDIN_CLIENT_ID";
 const LINKEDIN_REDIRECT_URI = AuthSession.makeRedirectUri({
-  scheme: 'teacherslounge'
+  scheme: "teacherslounge",
 });
 
-function SocialLoginView({ navigation }) {
+function SocialLoginView() {
   const { setPendingAuth, login } = useAuth();
+  const { navigate } = useNavigation();
 
   // Google Auth
-  const [googleRequest, googleResponse, googlePromptAsync] = AuthSession.useAuthRequest(
-    {
-      clientId: GOOGLE_CLIENT_ID,
-      scopes: ['openid', 'profile', 'email'],
-      redirectUri: GOOGLE_REDIRECT_URI,
-      responseType: AuthSession.ResponseType.Token,
-    },
-    { authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth' }
-  );
+  const [googleRequest, googleResponse, googlePromptAsync] =
+    AuthSession.useAuthRequest(
+      {
+        clientId: GOOGLE_CLIENT_ID,
+        scopes: ["openid", "profile", "email"],
+        redirectUri: GOOGLE_REDIRECT_URI,
+        responseType: AuthSession.ResponseType.Token,
+      },
+      { authorizationEndpoint: "https://accounts.google.com/o/oauth2/v2/auth" }
+    );
 
   // LinkedIn Auth
-  const [linkedInRequest, linkedInResponse, linkedInPromptAsync] = AuthSession.useAuthRequest(
-    {
-      clientId: LINKEDIN_CLIENT_ID,
-      scopes: ['profile', 'email'],
-      redirectUri: LINKEDIN_REDIRECT_URI,
-      responseType: AuthSession.ResponseType.Code,
-      usePKCE: false,
-      extraParams: {
-        access_type: 'offline',
+  const [linkedInRequest, linkedInResponse, linkedInPromptAsync] =
+    AuthSession.useAuthRequest(
+      {
+        clientId: LINKEDIN_CLIENT_ID,
+        scopes: ["profile", "email"],
+        redirectUri: LINKEDIN_REDIRECT_URI,
+        responseType: AuthSession.ResponseType.Code,
+        usePKCE: false,
       },
-    },
-    {
-      authorizationEndpoint: 'https://www.linkedin.com/oauth/v2/authorization',
-      tokenEndpoint: 'https://www.linkedin.com/oauth/v2/accessToken',
-    }
-  );
+      {
+        authorizationEndpoint:
+          "https://www.linkedin.com/oauth/v2/authorization",
+        tokenEndpoint: "https://www.linkedin.com/oauth/v2/accessToken",
+      }
+    );
 
   // Handle Google response
   useEffect(() => {
-    if (googleResponse?.type === 'success') {
+    if (googleResponse?.type === "success") {
       const { access_token } = googleResponse.params;
       handleGoogleLogin(access_token);
     }
@@ -70,105 +77,64 @@ function SocialLoginView({ navigation }) {
 
   // Handle LinkedIn response
   useEffect(() => {
-    if (linkedInResponse?.type === 'success') {
+    if (linkedInResponse?.type === "success") {
       const { code } = linkedInResponse.params;
       handleLinkedInLogin(code);
     }
   }, [linkedInResponse]);
 
-  // Google login handler
+  // Unified auth handler
+  const handleAuthResult = async (result) => {
+    if (!result.ok) {
+      Alert.alert("Login Error", result.message);
+      return;
+    }
+
+    if (result.requires2FA) {
+      setPendingAuth({
+        email: result.email,
+        tempToken: result.tempToken,
+      });
+
+      navigate("TwoFactorAuth");
+      return;
+    }
+
+    await login(result.user, result.token);
+  };
+
+  // Google
   const handleGoogleLogin = async (accessToken) => {
     try {
-      // Get user info from Google
       const userInfoResponse = await fetch(
         `https://www.googleapis.com/oauth2/v1/userinfo?access_token=${accessToken}`
       );
       const userData = await userInfoResponse.json();
 
-      // Send to backend for verification/registration
-      const response = await fetch(`${apiUrl}/api/auth/social`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          provider: 'google',
-          email: userData.email,
-          firstName: userData.given_name,
-          lastName: userData.family_name,
-          providerId: userData.id,
-        }),
+      const result = await loginWithGoogle({
+        email: userData.email,
+        firstName: userData.given_name,
+        lastName: userData.family_name,
+        providerId: userData.id,
       });
 
-      const data = await response.json();
-      if (response.status === 200) {
-        await handleSocialLoginSuccess(data);
-      } else {
-        Alert.alert('Login Error', data.message);
-      }
+      handleAuthResult(result);
     } catch (error) {
-      Alert.alert('Error', 'Failed to login with Google');
+      Alert.alert("Error", "Failed to login with Google");
     }
   };
 
-  // LinkedIn login handler
+  // LinkedIn
   const handleLinkedInLogin = async (code) => {
     try {
-      // Exchange code for access token
-      const tokenResponse = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `grant_type=authorization_code&code=${code}&redirect_uri=${LINKEDIN_REDIRECT_URI}&client_id=${LINKEDIN_CLIENT_ID}&client_secret=${LINKEDIN_CLIENT_SECRET}`,
-      });
-      
-      const tokenData = await tokenResponse.json();
-      const accessToken = tokenData.access_token;
-
-      // Get user profile
-      const profileResponse = await fetch('https://api.linkedin.com/v2/me', {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-      const profileData = await profileResponse.json();
-
-      // Get user email
-      const emailResponse = await fetch('https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))', {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-      const emailData = await emailResponse.json();
-
-      // Send to backend
-      const response = await fetch(`${apiUrl}/api/auth/social`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          provider: 'linkedin',
-          email: emailData.elements[0]['handle~'].emailAddress,
-          firstName: profileData.localizedFirstName,
-          lastName: profileData.localizedLastName,
-          providerId: profileData.id,
-        }),
-      });
-
-      const data = await response.json();
-      if (response.status === 200) {
-        await handleSocialLoginSuccess(data);
-      } else {
-        Alert.alert('Login Error', data.message);
-      }
+      const result = await loginWithLinkedIn(code);
+      handleAuthResult(result);
     } catch (error) {
-      Alert.alert('Error', 'Failed to login with LinkedIn');
+      Alert.alert("Error", "Failed to login with LinkedIn");
     }
   };
 
-  // Apple login handler
+  // Apple
   const handleAppleLogin = async () => {
     try {
       const credential = await AppleAuthentication.signInAsync({
@@ -178,82 +144,28 @@ function SocialLoginView({ navigation }) {
         ],
       });
 
-      // Send to backend
-      const response = await fetch(`${apiUrl}/api/auth/social`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          provider: 'apple',
-          email: credential.email,
-          firstName: credential.fullName?.givenName,
-          lastName: credential.fullName?.familyName,
-          providerId: credential.user,
-          identityToken: credential.identityToken,
-        }),
-      });
-
-      const data = await response.json();
-      if (response.status === 200) {
-        await handleSocialLoginSuccess(data);
-      } else {
-        Alert.alert('Login Error', data.message);
-      }
+      const result = await loginWithApple(credential);
+      handleAuthResult(result);
     } catch (error) {
-      if (error.code === 'ERR_REQUEST_CANCELED') {
-        // User canceled
-      } else {
-        Alert.alert('Error', 'Failed to login with Apple');
+      if (error.code !== "ERR_REQUEST_CANCELED") {
+        Alert.alert("Error", "Failed to login with Apple");
       }
     }
   };
 
-  const handleSocialLoginSuccess = async (data) => {
-  if (!data.user) return;
-
-  let user = new User(
-    data.user.Email,
-    data.user.FirstName,
-    data.user.LastName,
-    data.user.SchoolID,
-    data.user.Role,
-    data.user.ProfilePicLink
-  );
-
-  try {
-    if (user.userRole === "Approved" || user.userRole === "Admin") {
-
-      if (data.requires2FA) {
-        setPendingAuth({
-          email: data.user.Email,
-          tempToken: data.token,
-        });
-      } else {
-        await SecureStore.setItemAsync("token", data.token);
-        login(user);
-      }
-
-    } else {
-      Alert.alert("Still awaiting approval to join the app");
-    }
-
-  } catch (error) {
-    Alert.alert("Couldn't login, please try again");
-  }
-};
-
   return (
     <View style={App_StyleSheet.socialLoginContainer}>
       <Text style={App_StyleSheet.socialLoginText}>Or sign in with</Text>
-      
+
       <TouchableOpacity
         style={App_StyleSheet.socialLoginButton}
         onPress={() => googlePromptAsync()}
         disabled={!googleRequest}
       >
         <FontAwesome name="google" size={24} color="white" />
-        <Text style={App_StyleSheet.socialButtonText}>Sign in with Google</Text>
+        <Text style={App_StyleSheet.socialButtonText}>
+          Sign in with Google
+        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -262,13 +174,19 @@ function SocialLoginView({ navigation }) {
         disabled={!linkedInRequest}
       >
         <FontAwesome name="linkedin" size={24} color="white" />
-        <Text style={App_StyleSheet.socialButtonText}>Sign in with LinkedIn</Text>
+        <Text style={App_StyleSheet.socialButtonText}>
+          Sign in with LinkedIn
+        </Text>
       </TouchableOpacity>
 
-      {Platform.OS === 'ios' && (
+      {Platform.OS === "ios" && (
         <AppleAuthentication.AppleAuthenticationButton
-          buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-          buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+          buttonType={
+            AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
+          }
+          buttonStyle={
+            AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+          }
           cornerRadius={5}
           style={App_StyleSheet.appleButton}
           onPress={handleAppleLogin}
@@ -278,4 +196,4 @@ function SocialLoginView({ navigation }) {
   );
 }
 
-export default SocialLoginView; 
+export default SocialLoginView;

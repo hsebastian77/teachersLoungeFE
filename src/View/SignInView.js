@@ -93,9 +93,26 @@ function SignInView({ navigation }) {
       const codeVerifier = googleRequest?.codeVerifier;
 
       const clientId = Platform.OS === 'android' ? GOOGLE_ANDROID_CLIENT_ID : GOOGLE_IOS_CLIENT_ID;
-        const success = await handleGoogleLogin(navigation, code, GOOGLE_REDIRECT_URI, codeVerifier, clientId);
-        if (!success) {
-          setAuthError("Google sign in failed. Please try again.");
+        const result = await handleGoogleLogin(code, GOOGLE_REDIRECT_URI, codeVerifier, clientId);
+
+        if (!result?.ok) {
+          setAuthError(result?.message || "Google sign in failed.");
+          return;
+        }
+
+        if (result.requires2FA) {
+          setPendingAuth({
+            email: result.email,
+            tempToken: result.tempToken,
+          });
+
+          navigation.navigate("TwoFactorAuth");
+        } else {
+          authLogin(result.user);
+        }
+
+        if (!result?.ok) {
+          setAuthError(result?.message || "Google sign in failed. Please try again.");
         }
         setAuthLoading(false);
       } else if (googleResponse?.type === 'error') {
@@ -133,7 +150,7 @@ function SignInView({ navigation }) {
   };
 
   // Handle WebView navigation state changes
-  const handleWebViewNavigationStateChange = (navState) => {
+  const handleWebViewNavigationStateChange = async (navState) => {
     // Check if the URL contains our redirect URI
     if (navState.url && navState.url.includes('omegaeducationaltechsolutions.com/linkedin-redirect')) {
       try {
@@ -160,7 +177,21 @@ function SignInView({ navigation }) {
         }
 
         // Send code to backend for processing
-        handleLinkedInLogin(navigation, code).finally(() => setAuthLoading(false));
+        const result = await handleLinkedInLogin(code);
+
+        if (!result?.ok) {
+          setAuthError(result?.message || "LinkedIn login failed.");
+        } else if (result.requires2FA) {
+          setPendingAuth({
+            email: result.email,
+            tempToken: result.tempToken,
+          });
+          navigation.navigate("TwoFactorAuth");
+        } else {
+          authLogin(result.user);
+        }
+
+        setAuthLoading(false);
         
       } catch (error) {
         setAuthLoading(false);
@@ -189,7 +220,7 @@ function SignInView({ navigation }) {
         >
           <TextInput
             style={App_StyleSheet.textBlock}
-            placeholder="Email"
+            placeholder="Email or Username"
             underlineColor={"transparent"}
             selectionColor={"black"}
             activeUnderlineColor={"transparent"}
@@ -197,6 +228,8 @@ function SignInView({ navigation }) {
             returnKeyType="done"
             onChangeText={(value) => setEmail(value)}
             autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
           />
           <TextInput
             secureTextEntry={true}
@@ -219,9 +252,14 @@ function SignInView({ navigation }) {
             setAuthLoading(true);
             setAuthError("");
 
-            const result = await login(email, password);
+            try {
+              const result = await login(email, password);
 
-            if (result?.ok) {
+              if (!result?.ok) {
+                setAuthError(result?.message || "Unable to sign in.");
+                return;
+              }
+
               if (result.requires2FA) {
                 setPendingAuth({
                   email: result.email,
@@ -232,11 +270,11 @@ function SignInView({ navigation }) {
               } else {
                 authLogin(result.user);
               }
-            } else {
-              setAuthError(result?.message || "Unable to sign in.");
+            } catch (error) {
+              setAuthError("Unable to sign in. Please try again.");
+            } finally {
+              setAuthLoading(false);
             }
-
-            setAuthLoading(false);
           }}
           disabled={authLoading}
         >
@@ -251,6 +289,14 @@ function SignInView({ navigation }) {
           <Text style={App_StyleSheet.text}>{"Sign Up"}</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={App_StyleSheet.default_button}
+          onPress={() => navigation.navigate("ForgotPassword")}
+          disabled={authLoading}
+        >
+          <Text style={App_StyleSheet.text}>{"Forgot Password"}</Text>
+        </TouchableOpacity>
+
         {/* Divider */}
         <View style={App_StyleSheet.divider}>
           <View style={App_StyleSheet.dividerLine} />
@@ -261,10 +307,26 @@ function SignInView({ navigation }) {
         {/* Social Login Buttons */}
         <TouchableOpacity
           style={[App_StyleSheet.socialLoginButton, { backgroundColor: '#DB4437' }]}
-          onPress={() => {
-            setAuthLoading(true);
+          onPress={async () => {
             setAuthError("");
-            googlePromptAsync();
+            try {
+              const promptResult = await googlePromptAsync();
+
+              // If the prompt is dismissed or canceled before a success callback,
+              // make sure we do not leave the UI in a loading state.
+              if (!promptResult || promptResult.type === 'dismiss' || promptResult.type === 'cancel') {
+                setAuthLoading(false);
+                return;
+              }
+
+              if (promptResult.type === 'error') {
+                setAuthLoading(false);
+                setAuthError('Google sign in failed. Please try again.');
+              }
+            } catch (error) {
+              setAuthLoading(false);
+              setAuthError('Google sign in failed. Please try again.');
+            }
           }}
           disabled={!googleRequest || authLoading}
         >
@@ -297,7 +359,19 @@ function SignInView({ navigation }) {
                     AppleAuthentication.AppleAuthenticationScope.EMAIL,
                   ],
                 });
-                await handleAppleLogin(navigation, credential);
+                const result = await handleAppleLogin(credential);
+
+                if (!result?.ok) {
+                  setAuthError(result?.message || "Apple sign in failed.");
+                } else if (result.requires2FA) {
+                  setPendingAuth({
+                    email: result.email,
+                    tempToken: result.tempToken,
+                  });
+                  navigation.navigate("TwoFactorAuth");
+                } else {
+                  authLogin(result.user);
+                }
               } catch (e) {
                 if (e.code === 'ERR_REQUEST_CANCELED') {
                   // User canceled Apple sign in

@@ -7,6 +7,7 @@ async function CreatePost({ navigation }, title, content, file, user) {
   if (content != "") {
     let postUrl = apiUrl + createPostRoute;
     console.log(postUrl)
+    const attachment = file || {};
     const reqOptions = {
       method: "POST",
       headers: {
@@ -16,19 +17,19 @@ async function CreatePost({ navigation }, title, content, file, user) {
       body: JSON.stringify({
         title: title,
         content: content,
-        fileUrl: file.url,
+        fileUrl: attachment.url || null,
         email: user.userUserName,
-        fileType: file.type,
-        fileDisplayName: file.name,
+        fileType: attachment.type || null,
+        fileDisplayName: attachment.name || null,
       }),
     };
 
     const response = await fetch(postUrl, reqOptions);
     const data = await response.json();
-    if (response.status != 200) {
+    if (!response.ok) {
       Alert.alert("Error", "Unable to create post");
     } else {
-      user.createPost(content, file.url);
+      user.createPost(content, attachment.url || null);
       Alert.alert("Success", "Post created");
       navigation.navigate("Home");
     }

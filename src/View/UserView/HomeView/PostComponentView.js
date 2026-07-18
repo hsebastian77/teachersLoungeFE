@@ -15,20 +15,19 @@ import { likePost } from "../../../Controller/LikePostCommand";
 import { unlikePost } from "../../../Controller/UnlikePostCommand";
 import { getPostLikes } from "../../../Controller/GetPostLikesCommand";
 import { checkLikePost } from "../../../Controller/CheckLikedPostCommand";
+import { deletePost } from "../../../Controller/PostManager";
 
-function PostComponentView({ post }) {
-  const { user } = useAuth();
-  const navigation = useNavigation();
+function PostComponentView({ navigation, post, User }) {
   const route = useRoute();
 
   const [isLiked, setIsLiked] = useState(false);
   const [likes, setLikes] = useState(Number(post.likes));
+  const [imageFailed, setImageFailed] = useState(false);
 
   let likeImg = require("../../../../assets/like.png");
   let likeFilledImg = require("../../../../assets/like_filled.png");
   let commentImg = require("../../../../assets/comment.png");
 
-  // Initialize like state properly
   useEffect(() => {
     const init = async () => {
       if (!user?.userUserName) return;
@@ -79,7 +78,6 @@ function PostComponentView({ post }) {
     }
   };
 
-  const communityName = post.communityName || post.user;
 
   return (
     <TouchableOpacity
@@ -91,15 +89,24 @@ function PostComponentView({ post }) {
       }}
     >
       <View style={styles.text}>
-        <Text style={styles.title}>{post.title || "no title"}</Text>
+      <Text style={styles.title}>{post.title || "no title"}</Text>
         <Text style={styles.content}>{post.postContent}</Text>
 
-        {post.fileUrl && (
+        {shouldTryImageRender(post.fileUrl) && !imageFailed && (
+          <Image
+            style={styles.postImage}
+            source={{ uri: post.fileUrl }}
+            resizeMode="cover"
+            onError={() => setImageFailed(true)}
+          />
+        )}
+
+        {post.fileUrl && (!shouldTryImageRender(post.fileUrl) || imageFailed) && (
           <Text
             style={styles.linkText}
             onPress={() => Linking.openURL(post.fileUrl)}
           >
-            {"Open Image File"}
+            {"Open Attachment"}
           </Text>
         )}
       </View>
@@ -143,14 +150,15 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 10,
   },
-  timestamp: {
-    color: "#666666",
-    fontSize: 12,
-    marginBottom: 10,
-  },
   content: {
     color: "black",
     fontSize: 15,
+  },
+  postImage: {
+    width: "100%",
+    height: 220,
+    borderRadius: 12,
+    marginTop: 12,
   },
   linkText: {
     color: "blue",

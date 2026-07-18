@@ -58,7 +58,7 @@ async function selectDoc() {
     console.log("Public file url: " + publicFileUrl);
 
     // Return the file object
-    const f = new File(publicFileUrl, fileUrl, result.mimeType);
+    const f = new File(publicFileUrl, fileUrl, result.assets[0].mimeType || "");
     console.log(f);
     return f;
 
@@ -88,14 +88,14 @@ async function selectPic(isProfilePic) {
     // Strip email part of the username
     const emailPreAt = username.split("@")[0]; // Part of the username before the @ symbol in the email
 
-    const type = mimeType.split("/")[1];
+    const mimeSubType = mimeType.split("/")[1] || "jpg";
 
     uploadData.append('file', {
       uri: result.assets[0].uri,
       type: mimeType,
       // No name will be attached to this by default, see Expo ImagePicker docs
       // Using profilePictureMMDDYYYYHHMMSS.png as a default name
-      name: emailPreAt + "profilePicture" + Date.now()
+      name: `${emailPreAt}profilePicture${Date.now()}.${mimeSubType}`
     });
 
     // Specify if the image upload is for a post or profile picture
@@ -140,7 +140,7 @@ async function selectPic(isProfilePic) {
     console.log("Public file url: " + publicFileUrl);
 
     // Return the file object
-    const f = new File(publicFileUrl, fileUrl, type);
+    const f = new File(publicFileUrl, fileUrl, mimeType || "");
     console.log("Logging the file to be returned\n" + f);
     return f;
 

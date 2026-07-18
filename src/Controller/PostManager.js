@@ -45,7 +45,10 @@ async function getApprovedPosts(userEmail) {
           [],
           data[count].fileurl,
           data[count].communityname,
-          data[count].commentscount
+          data[count].commentscount,
+          data[count].createdat,
+          data[count].filedisplayname,
+          data[count].filetype
         )
       );
       count = count + 1;
@@ -82,7 +85,10 @@ async function getApprovedPostsByUser(username) {
           [],
           data[count].fileurl,
           data[count].communityname,
-          data[count].commentscount
+          data[count].commentscount,
+          data[count].createdat,
+          data[count].filedisplayname,
+          data[count].filetype
         )
       );
       count = count + 1;
@@ -131,16 +137,65 @@ async function deletePost(postID) {
 
     console.log("Raw response from backend:", text);
 
-    const results = JSON.parse(text);
-
-    if (response.status === 200) {
-      Alert.alert("Success", results.message);
-    } else {
-      Alert.alert("Error", results.message || "Server error, try again");
+    let results = {};
+    if (text) {
+      try {
+        results = JSON.parse(text);
+      } catch (parseError) {
+        results = { message: text };
+      }
     }
+
+    if (response.ok) {
+      return true;
+    }
+
+    console.warn("Delete post failed:", results.message || response.status);
+    return false;
   } catch (err) {
     console.error("Error deleting post:", err);
-    Alert.alert("Error", "Something went wrong");
+    return false;
+  }
+}
+
+// Delete a comment from DB, called when a user deletes their own comment or admin deletes any comment
+async function deleteComment(commentID) {
+  const deleteCommentRoute = "/deleteComment";
+  const urlDelete = `${apiUrl}${deleteCommentRoute}/${commentID}`;
+  console.log("Delete comment URL:", urlDelete);
+
+  const reqOptions = {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + (await SecureStore.getItemAsync("token")),
+    },
+  };
+
+  try {
+    const response = await fetch(urlDelete, reqOptions);
+    const text = await response.text();
+
+    console.log("Raw response from backend:", text);
+
+    let results = {};
+    if (text) {
+      try {
+        results = JSON.parse(text);
+      } catch (parseError) {
+        results = { message: text };
+      }
+    }
+
+    if (response.ok) {
+      return true;
+    }
+
+    console.warn("Delete comment failed:", results.message || response.status);
+    return false;
+  } catch (err) {
+    console.error("Error deleting comment:", err);
+    return false;
   }
 }
 
@@ -245,6 +300,7 @@ async function getCommentsByPostId(postId, userEmail) {
       // Alert.alert("Error", "getCommentsByPostId data: " + temComment.Email);
       comments.push(
         new Comment(
+          temComment.id || temComment.commentid || temComment.CommentID,
           temComment.email,
           null,
           temComment.content,
@@ -289,6 +345,7 @@ export {
   //getPendingPosts,
   approvePost,
   deletePost,
+  deleteComment,
   addComment,
   getComment,
   getCommentsByPostId,
