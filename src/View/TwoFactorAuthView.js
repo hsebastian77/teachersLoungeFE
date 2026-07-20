@@ -1,43 +1,64 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
+  TouchableOpacity,
   TextInput,
-  Button,
-  Alert,
-  ActivityIndicator,
-  TouchableOpacity
+  ActivityIndicator
 } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
 import { useAuth } from '../context/AuthContext';
 import { verifyOTP, resendOTP } from '../Controller/TwoFactorAuthCommand';
+import * as SecureStore from 'expo-secure-store';
 
 const TwoFactorAuthView = () => {
   const { pendingAuth, login } = useAuth();
 
-  const [code, setCode] = useState('');
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
 
-  // Cooldown timer
+  const inputRefs = useRef([]);
+
+  // countdown
   useEffect(() => {
     if (cooldown <= 0) return;
-
     const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
     return () => clearTimeout(timer);
   }, [cooldown]);
 
-  const handleVerify = async () => {
-    const trimmedCode = code.trim();
+  // handle digit change
+  const handleOtpChange = (value, index) => {
+    if (!/^\d?$/.test(value)) return;
 
-    if (!trimmedCode) {
-      Alert.alert('Error', 'Please enter the verification code.');
-      return;
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+
+    // move forward
+    if (value && index < 5) {
+      inputRefs.current[index + 1]?.focus();
     }
 
+    // auto submit
+    if (index === 5 && value) {
+      handleVerify(newOtp.join(''));
+    }
+  };
+
+  const handleKeyPress = (e, index) => {
+    if (e.nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleVerify = async (overrideCode) => {
+    const finalCode = overrideCode || otp.join('');
+
+    if (finalCode.length !== 6) return;
+
     if (!pendingAuth?.email || !pendingAuth?.tempToken) {
-      Alert.alert('Error', 'Session expired. Please log in again.');
+      alert('Session expired. Please log in again.');
       return;
     }
 
@@ -46,19 +67,19 @@ const TwoFactorAuthView = () => {
 
       const result = await verifyOTP(
         pendingAuth.email,
-        trimmedCode,
+        finalCode,
         pendingAuth.tempToken
       );
 
-      if (!result?.ok) {
-        throw new Error(result?.message || 'Invalid code.');
-      }
+      if (!result?.ok) throw new Error(result?.message);
 
       await SecureStore.setItemAsync("token", result.token);
       login(result.user);
 
-    } catch (error) {
-      Alert.alert('Verification Failed', error.message);
+    } catch (err) {
+      alert(err.message);
+      setOtp(['', '', '', '', '', '']);
+      inputRefs.current[0]?.focus();
     } finally {
       setLoading(false);
     }
@@ -66,11 +87,6 @@ const TwoFactorAuthView = () => {
 
   const handleResend = async () => {
     if (cooldown > 0) return;
-
-    if (!pendingAuth?.email || !pendingAuth?.tempToken) {
-      Alert.alert('Error', 'Session expired. Please log in again.');
-      return;
-    }
 
     try {
       setResending(true);
@@ -80,52 +96,82 @@ const TwoFactorAuthView = () => {
         pendingAuth.tempToken
       );
 
-      if (!result.ok) {
-        throw new Error(result.message);
-      }
+      if (!result.ok) throw new Error(result.message);
 
-      Alert.alert('Success', 'Verification code resent.');
       setCooldown(30);
 
-    } catch (error) {
-      Alert.alert('Error', error.message);
+    } catch (err) {
+      alert(err.message);
     } finally {
       setResending(false);
     }
   };
 
   return (
-    <View style={{ padding: 20 }}>
-      <Text>Enter verification code</Text>
+    <View style={{
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20
+    }}>
+      <Text style={{ fontSize: 20, marginBottom: 10 }}>
+        Enter Verification Code
+      </Text>
 
-      <TextInput
-        value={code}
-        onChangeText={setCode}
-        keyboardType="numeric"
-        placeholder="6-digit code"
-        style={{ borderWidth: 1, padding: 10, marginVertical: 10 }}
-      />
+      {/* 6-digit input UI */}
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        {otp.map((digit, index) => (
+          <TextInput
+            key={index}
+            ref={(ref) => (inputRefs.current[index] = ref)}
+            value={digit}
+            onChangeText={(val) => handleOtpChange(val, index)}
+            onKeyPress={(e) => handleKeyPress(e, index)}
+            keyboardType="numeric"
+            maxLength={1}
+            style={{
+              borderWidth: 1,
+              width: 45,
+              height: 55,
+              textAlign: 'center',
+              fontSize: 20,
+              borderRadius: 8
+            }}
+          />
+        ))}
+      </View>
 
+      {/* verify button */}
       {loading ? (
-        <ActivityIndicator />
+        <ActivityIndicator style={{ marginTop: 20 }} />
       ) : (
-        <Button title="Verify" onPress={handleVerify} />
+        <TouchableOpacity
+          onPress={() => handleVerify()}
+          style={{
+            marginTop: 20,
+            backgroundColor: 'blue',
+            padding: 12,
+            borderRadius: 8
+          }}
+        >
+          <Text style={{ color: 'white' }}>Verify</Text>
+        </TouchableOpacity>
       )}
 
-      <View style={{ marginTop: 20 }}>
-        <TouchableOpacity
-          onPress={handleResend}
-          disabled={cooldown > 0 || resending}
-        >
-          <Text style={{ color: cooldown > 0 ? 'gray' : 'blue' }}>
-            {resending
-              ? "Sending..."
-              : cooldown > 0
-              ? `Resend code in ${cooldown}s`
-              : "Resend Code"}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {/* resend */}
+      <TouchableOpacity
+        onPress={handleResend}
+        disabled={cooldown > 0 || resending}
+        style={{ marginTop: 20 }}
+      >
+        <Text style={{ color: cooldown > 0 ? 'gray' : 'blue' }}>
+          {resending
+            ? "Sending..."
+            : cooldown > 0
+            ? `Resend in ${cooldown}s`
+            : "Resend Code"}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 };

@@ -87,7 +87,7 @@ async function login(email, password) {
     const fullToken = getFullAuthToken(data);
     const mfaToken = getMfaToken(data);
 
-    await SecureStore.setItemAsync("userEmail", user.userEmail);
+    await SecureStore.setItemAsync("userEmail", String(user.userUserName || data.user.Email || ""));
 
     const emailVerified =
       data?.emailVerified ??
