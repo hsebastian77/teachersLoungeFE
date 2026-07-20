@@ -49,8 +49,11 @@ async function login(email, password) {
   };
 
   try {
+    console.log("LOGIN URL:", urlLogin);
     const response = await fetch(urlLogin, reqOptions);
+    console.log("RESPONSE STATUS:", response.status);
     const data = await safeParseJson(response);
+    console.log("RESPONSE DATA:", data);
 
     if (response.status !== 200) {
       return { ok: false, message: data.message || "Unable to sign in" };
