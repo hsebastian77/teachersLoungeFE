@@ -105,15 +105,10 @@ function SignInView({ navigation }) {
             email: result.email,
             tempToken: result.tempToken,
           });
-
-          navigation.navigate("TwoFactorAuth");
         } else {
           authLogin(result.user);
         }
 
-        if (!result?.ok) {
-          setAuthError(result?.message || "Google sign in failed. Please try again.");
-        }
         setAuthLoading(false);
       } else if (googleResponse?.type === 'error') {
         setAuthLoading(false);
@@ -186,7 +181,6 @@ function SignInView({ navigation }) {
             email: result.email,
             tempToken: result.tempToken,
           });
-          navigation.navigate("TwoFactorAuth");
         } else {
           authLogin(result.user);
         }
@@ -263,10 +257,8 @@ function SignInView({ navigation }) {
               if (result.requires2FA) {
                 setPendingAuth({
                   email: result.email,
-                  tempToken: result.token,
+                  tempToken: result.Temptoken,
                 });
-
-                navigation.navigate("TwoFactorAuth");
               } else {
                 authLogin(result.user);
               }
@@ -368,7 +360,6 @@ function SignInView({ navigation }) {
                     email: result.email,
                     tempToken: result.tempToken,
                   });
-                  navigation.navigate("TwoFactorAuth");
                 } else {
                   authLogin(result.user);
                 }
