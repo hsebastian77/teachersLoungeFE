@@ -1,7 +1,11 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { useAuth } from "../../../context/AuthContext";
 
-function MessageBox({ navigation, message, sender, incoming }) {
+function MessageBox({ message, sender, senderId }) {
+  const { user } = useAuth();
+
+  const incoming = senderId !== user?.id;
   const displayName = incoming ? sender : "You";
 
   return (
@@ -11,9 +15,21 @@ function MessageBox({ navigation, message, sender, incoming }) {
         incoming ? styles.alignStart : styles.alignEnd,
       ]}
     >
-      <View style={incoming ? styles.incomingBubble : styles.outgoingBubble}>
+      <View
+        style={[
+          styles.bubble,
+          incoming ? styles.incomingBubble : styles.outgoingBubble,
+        ]}
+      >
         <Text style={styles.sender}>{displayName}</Text>
-        <Text style={styles.messageText}>{message}</Text>
+        <Text
+          style={[
+            styles.messageText,
+            !incoming && styles.outgoingText,
+          ]}
+        >
+          {message}
+        </Text>
       </View>
     </View>
   );
@@ -31,17 +47,16 @@ const styles = StyleSheet.create({
   alignEnd: {
     alignSelf: "flex-end",
   },
-  incomingBubble: {
-    backgroundColor: "#e7ecfe",
+  bubble: {
     borderRadius: 16,
     paddingVertical: 8,
     paddingHorizontal: 12,
   },
+  incomingBubble: {
+    backgroundColor: "#e7ecfe",
+  },
   outgoingBubble: {
-    backgroundColor: "#f0f0f0",
-    borderRadius: 16,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    backgroundColor: "#4e8cff",
   },
   sender: {
     fontSize: 11,
@@ -52,6 +67,9 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 15,
     color: "#000",
+  },
+  outgoingText: {
+    color: "#fff",
   },
 });
 

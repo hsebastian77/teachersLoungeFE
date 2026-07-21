@@ -1,91 +1,97 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Text,
   TouchableOpacity,
   FlatList,
   View,
-  StyleSheet
 } from "react-native";
+import { useRoute, useFocusEffect } from "@react-navigation/native";
+import { useAuth } from "../../../context/AuthContext";
 import PostComponentView from "./PostComponentView.js";
 import {
   getCommunityPosts,
   joinCommunity,
-  leaveCommunity
+  leaveCommunity,
 } from "../../../Controller/CommunitiesManager";
-import { useRoute, useIsFocused } from "@react-navigation/native";
 import SafeArea from "../../SafeArea.js";
 import App_StyleSheet from "../../../Styles/App_StyleSheet";
 
 function CommunityView({ navigation }) {
+  const { user } = useAuth();
   const route = useRoute();
-  const { Community, User, isMember } = route.params;
 
+  const { Community } = route.params;
+  const [posts, setPosts] = useState([]);
+  const [isMember, setIsMember] = useState(route.params.isMember);
+
+  // Load posts on focus
+  const loadPosts = async () => {
+    if (!user?.userUserName) return;
+
+    const data = await getCommunityPosts(
+      Community.id,
+      user.userUserName
+    );
+
+    setPosts(data);
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      loadPosts();
+    }, [user?.userUserName, Community.id])
+  );
+
+  // Header setup
   useEffect(() => {
     navigation.setOptions({
       title: Community?.name,
       headerRight: () => (
-        <TouchableOpacity style={App_StyleSheet.header_button}
-          onPress={() => {
-            if (Community && User) {
-              const communityId = Community.id;
-              const userEmail = User.userUserName;
-              console.log("Community ID:", communityId);
-              console.log("User Email:", userEmail);
-              if (isMember) {
-                leaveCommunity({ navigation }, communityId, userEmail);
-              } else {
-                joinCommunity({ navigation }, communityId, userEmail);
-              }
+        <TouchableOpacity
+          style={App_StyleSheet.header_button}
+          onPress={async () => {
+            if (!user?.userUserName) return;
+
+            if (isMember) {
+              await leaveCommunity(Community.id, user.userUserName);
+              setIsMember(false);
             } else {
-              console.warn("Community or User is undefined");
+              await joinCommunity(Community.id, user.userUserName);
+              setIsMember(true);
             }
+
+            loadPosts(); // refresh posts if needed
           }}
         >
-          <Text style={App_StyleSheet.header_button_text}>{isMember ? "Leave" : "Join"}</Text>
+          <Text style={App_StyleSheet.header_button_text}>
+            {isMember ? "Leave" : "Join"}
+          </Text>
         </TouchableOpacity>
       ),
     });
-  }, [Community, User, navigation]);
-
-  const isFocused = useIsFocused();
-  React.useEffect(() => {
-    if (isFocused) {
-      loadPosts();
-    }
-  }, [isFocused]);
-  const [posts, setPosts] = useState([]);
-  const loadPosts = async () => {
-    const data = await getCommunityPosts(route.params.Community.id, route.params.User.userUserName);
-    setPosts(data);
-  };
+  }, [navigation, Community, isMember, user?.userUserName]);
 
   return (
     <SafeArea>
       <View style={App_StyleSheet.content}>
-        {posts && (
-          <FlatList
-            ListEmptyComponent={
+        <FlatList
+          ListEmptyComponent={
+            <Text style={App_StyleSheet.list_message}>
+              No posts yet!
+            </Text>
+          }
+          ListFooterComponent={
+            posts[0] && (
               <Text style={App_StyleSheet.list_message}>
-                {"No posts yet!"}
+                You've viewed all posts!
               </Text>
-            }
-            ListFooterComponent={
-              posts[0] && (
-                <Text style={App_StyleSheet.list_message}>
-                  {"You've viewed all posts!"}
-                </Text>
-              )
-            }
-            data={posts}
-            extraData={posts}
-            renderItem={({ item }) => (
-              <PostComponentView
-                navigation={navigation}
-                post={item}
-              />
-            )}
-          />
-        )}
+            )
+          }
+          data={posts}
+          renderItem={({ item }) => (
+            <PostComponentView post={item} />
+          )}
+        />
       </View>
     </SafeArea>
   );

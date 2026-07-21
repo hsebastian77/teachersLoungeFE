@@ -64,7 +64,8 @@ async function confirmPasswordReset({ code, newPassword, email }) {
     return { ok: false, message: "Reset code must be 6 digits." };
   }
 
-  if (!newPassword || newPassword.length < 8) {
+  if (newPassword.length < 8 || !/[A-Z]/.test(newPassword) ||
+      !/[0-9]/.test(newPassword) || !/[^A-Za-z0-9]/.test(newPassword)) {
     return { ok: false, message: "Password must be at least 8 characters long." };
   }
 

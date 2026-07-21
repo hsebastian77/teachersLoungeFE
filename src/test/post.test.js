@@ -11,7 +11,10 @@ describe("Post class", () => {
       overrides.comments ?? [],
       overrides.fileUrl ?? null,
       overrides.communityName ?? "General",
-      overrides.commentsCount ?? 0
+      overrides.commentsCount ?? 0,
+      overrides.createdAt ?? null,
+      overrides.fileName ?? null,
+      overrides.fileType ?? null
     );
 
   it("should have an id", () => {
@@ -60,6 +63,16 @@ describe("Post class", () => {
     });
 
     expect(postWithFileUrl.fileUrl).toBe("https://example.com/file.pdf");
+  });
+
+  it("should preserve attachment metadata", () => {
+    const post = createPost({
+      fileName: "lesson-plan.pdf",
+      fileType: "application/pdf",
+    });
+
+    expect(post.fileName).toBe("lesson-plan.pdf");
+    expect(post.fileType).toBe("application/pdf");
   });
 
   it("should have a communityName", () => {

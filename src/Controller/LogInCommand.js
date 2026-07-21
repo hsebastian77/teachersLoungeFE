@@ -1,6 +1,5 @@
-import { Alert } from "react-native";
 import User from "../Model/User";
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from "expo-secure-store";
 import { apiUrl, loginRoute } from "@env";
 
 const getFullAuthToken = (data) => {
@@ -22,115 +21,134 @@ const safeParseJson = async (response) => {
 
   try {
     return JSON.parse(text);
-  } catch (error) {
+  } catch {
     return { message: text };
   }
 };
 
-//Logs user into the app based on their email and password
-async function login({ navigation }, identifier, password) {
-  if (identifier != "" && password != "") {
+// Logs user into the app based on their email and password
+async function login(email, password) {
+  if (!email || !password) {
+    return { ok: false, message: "Email and password must not be blank" };
+  }
 
-    //URL for server
-    let urlLogin = apiUrl + loginRoute;
-    const reqOptions = {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      // Send both keys for backend compatibility (some versions expect username, others email).
-      body: JSON.stringify({
-        identifier,
-        username: identifier,
-        email: identifier,
-        password: password,
-      }),
-    };
-    
-    try {
-      const response = await fetch(urlLogin, reqOptions);
-      const data = await safeParseJson(response);
+  const urlLogin = apiUrl + loginRoute;
 
-      if (response.status != 200) {
-        return { ok: false, message: data.message || "Unable to sign in" };
-      } else { // Successful login
-        if (data.user != null) {
-          // 兼容新旧版本：优先使用SchoolName，如果不存在则使用SchoolID，都没有则使用空字符串
-          const schoolInfo = data.user.SchoolName || data.user.SchoolID || "";
-          
-          let user = new User(
-            data.user.Email,
-            data.user.FirstName,
-            data.user.LastName,
-            schoolInfo,
-            data.user.Role,
-            data.user.ProfilePicLink,
-            data.user.Username
-          );
+  const reqOptions = {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    // Send all formats for backend compatibility
+    body: JSON.stringify({
+      identifier: email,
+      username: email,
+      email: email,
+      password: password,
+    }),
+  };
 
-          try {
-            const fullToken = getFullAuthToken(data);
-            const mfaToken = getMfaToken(data);
+  try {
+    console.log("LOGIN URL:", urlLogin);
+    const response = await fetch(urlLogin, reqOptions);
+    console.log("RESPONSE STATUS:", response.status);
+    const data = await safeParseJson(response);
+    console.log("RESPONSE DATA:", data);
 
-            // Store username in secure store
-            await SecureStore.setItemAsync("username", data.user.Email || identifier);
+    if (response.status !== 200) {
+      return { ok: false, message: data.message || "Unable to sign in" };
+    }
 
-            if (user.userRole == "Approved" || user.userRole == "Admin") {
-              const emailVerified =
-                data?.emailVerified ??
-                data?.isEmailVerified ??
-                data?.user?.emailVerified ??
-                data?.user?.isEmailVerified ??
-                data?.user?.EmailVerified;
+    if (!data.user) {
+      return { ok: false, message: data.message || "Unable to sign in" };
+    }
 
-              const requires2FA =
-                emailVerified === false ||
-                data?.requiresEmailVerification === true ||
-                data?.requiresVerification === true ||
-                data?.status === "MFA_REQUIRED" ||
-                data?.requiresMFA === true ||
-                data?.mfaRequired === true ||
-                (typeof data.requires2FA === "boolean" ? data.requires2FA : true);
+    // Build user
+    const schoolInfo = data.user.SchoolName || data.user.SchoolID || "";
 
-              if (requires2FA) {
-                if (mfaToken) {
-                  await SecureStore.setItemAsync("token", mfaToken);
-                  navigation.navigate("TwoFactorAuth", { User: user, email: data.user.Email || identifier });
-                } else if (fullToken) {
-                  // Backward compatibility with older backend behavior.
-                  await SecureStore.setItemAsync("token", fullToken);
-                  navigation.navigate("TwoFactorAuth", { User: user, email: data.user.Email || identifier });
-                } else {
-                  return { ok: false, message: "MFA is required but no challenge token was provided by the server." };
-                }
-              } else {
-                if (!fullToken) {
-                  return { ok: false, message: "Login succeeded but no session token was provided by the server." };
-                }
-                await SecureStore.setItemAsync("token", fullToken);
-                navigation.navigate("User", { User: user });
-              }
-              return { ok: true };
-            } else {
-              //Only approved users can login
-              return { ok: false, message: "Your account is still awaiting approval" };
-            }
-          } catch (error) {
-            return { ok: false, message: "Unable to complete sign in. Please try again." };
-          }
+    const user = new User(
+      data.user.Email,
+      data.user.FirstName,
+      data.user.LastName,
+      schoolInfo,
+      data.user.Role,
+      data.user.ProfilePicLink,
+      data.user.Username
+    );
 
-        } else {
-          return { ok: false, message: data.message || "Unable to sign in" };
-        }
-      }
-    } catch (error) {
+    // Role check
+    if (user.userRole !== "Approved" && user.userRole !== "Admin") {
       return {
         ok: false,
-        message: `Unable to connect to server at ${apiUrl}. Please check your internet connection and backend server.`,
+        message: "Your account is still awaiting approval",
       };
     }
-  } else {
-    return { ok: false, message: "Email/username and password must not be blank" };
+
+    const fullToken = getFullAuthToken(data);
+    const mfaToken = getMfaToken(data);
+
+    await SecureStore.setItemAsync("userEmail", String(user.userUserName || data.user.Email || ""));
+
+    const emailVerified =
+      data?.emailVerified ??
+      data?.isEmailVerified ??
+      data?.user?.emailVerified ??
+      data?.user?.isEmailVerified ??
+      data?.user?.EmailVerified;
+
+    const requires2FA =
+      emailVerified === false ||
+      data?.requiresEmailVerification === true ||
+      data?.requiresVerification === true ||
+      data?.status === "MFA_REQUIRED" ||
+      data?.requiresMFA === true ||
+      data?.mfaRequired === true ||
+      (typeof data.requires2FA === "boolean" ? data.requires2FA : false);
+
+    if (requires2FA) {
+      if (mfaToken) {
+        await SecureStore.setItemAsync("token", mfaToken);
+      } else if (fullToken) {
+        await SecureStore.setItemAsync("token", fullToken);
+      } else {
+        return {
+          ok: false,
+          message: "MFA required but no token provided",
+        };
+      }
+
+      return {
+        ok: true,
+        requires2FA: true,
+        user,
+        email: user.userEmail,
+        tempToken: mfaToken || fullToken,
+      };
+    }
+
+    if (!fullToken) {
+      return {
+        ok: false,
+        message: "Login succeeded but no token provided",
+      };
+    }
+
+    await SecureStore.setItemAsync("token", fullToken);
+
+    return {
+      ok: true,
+      user,
+      requires2FA: false,
+      email: user.userEmail,
+      token: fullToken,
+    };
+
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        "Unable to connect to server. Please check your internet connection.",
+    };
   }
 }
 

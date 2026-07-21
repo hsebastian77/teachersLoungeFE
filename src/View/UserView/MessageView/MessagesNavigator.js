@@ -1,6 +1,5 @@
 import React from "react";
 import { TouchableOpacity, Image } from "react-native";
-import { useRoute } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import ConversationView from "./ConversationView";
@@ -14,19 +13,7 @@ const Stack = createNativeStackNavigator();
 
 const newChatIcon = require("../../../../assets/newMessage.png");
 
-// 🔹 Reusable header button
-const NewChatButton = ({ navigation }) => (
-  <TouchableOpacity
-    onPress={() => navigation.navigate("New Chat")}
-    style={App_StyleSheet.header_button}
-  >
-    <Image source={newChatIcon} style={App_StyleSheet.header_icon} />
-  </TouchableOpacity>
-);
-
-function MessagesNavigator({ navigation }) {
-  const route = useRoute();
-
+export default function MessagesNavigator() {
   const defaultOptions = {
     headerTitleAlign: "left",
     headerStyle: {
@@ -47,35 +34,39 @@ function MessagesNavigator({ navigation }) {
       <Stack.Screen
         name="Messages"
         component={MessagesView}
-        initialParams={route.params}
-        options={{
+        options={({ navigation }) => ({
           headerLeft: () => null,
-          headerRight: () => <NewChatButton navigation={navigation} />,
-        }}
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={() => navigation.navigate("New Chat")}
+              style={App_StyleSheet.header_button}
+            >
+              <Image
+                source={newChatIcon}
+                style={App_StyleSheet.header_icon}
+              />
+            </TouchableOpacity>
+          ),
+        })}
       />
 
       <Stack.Screen
         name="Conversation"
         component={ConversationView}
-        initialParams={route.params}
         options={{ headerBackTitleVisible: false }}
       />
 
       <Stack.Screen
         name="New Chat"
         component={CreateNewChatView}
-        initialParams={route.params}
         options={{ headerBackTitleVisible: false }}
       />
 
       <Stack.Screen
         name="Conversation Info"
         component={ConversationInfoView}
-        initialParams={route.params}
         options={{ headerBackTitleVisible: false }}
       />
     </Stack.Navigator>
   );
 }
-
-export default MessagesNavigator;

@@ -1,5 +1,4 @@
 import React from "react";
-import { useRoute } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import PrivateSpacesListView from "./PrivateSpacesListView";
@@ -13,8 +12,6 @@ import CreatePrivateSpacePostView from "./CreatePrivateSpacePostView";
 const Stack = createNativeStackNavigator();
 
 function PrivateSpacesNavigator() {
-  const route = useRoute();
-
   const defaultOptions = {
     headerStyle: {
       backgroundColor: "#6382E8",
@@ -34,7 +31,6 @@ function PrivateSpacesNavigator() {
       <Stack.Screen
         name="PrivateSpacesList"
         component={PrivateSpacesListView}
-        initialParams={route.params}
         options={{
           title: "Private Spaces",
           headerLeft: () => null,
@@ -44,42 +40,36 @@ function PrivateSpacesNavigator() {
       <Stack.Screen
         name="PrivateSpace"
         component={PrivateSpaceView}
-        initialParams={route.params}
         options={{ title: "Private Space" }}
       />
 
       <Stack.Screen
         name="CreatePrivateSpace"
         component={CreatePrivateSpaceView}
-        initialParams={route.params}
         options={{ title: "Create Private Space" }}
       />
 
       <Stack.Screen
         name="PrivateSpaceMembers"
         component={PrivateSpaceMembersView}
-        initialParams={route.params}
         options={{ title: "Members" }}
       />
 
       <Stack.Screen
         name="InviteUser"
         component={InviteUserView}
-        initialParams={route.params}
         options={{ title: "Invite Member" }}
       />
 
       <Stack.Screen
         name="PrivateSpacePost"
         component={PrivateSpacePostView}
-        initialParams={route.params}
         options={{ title: "Post" }}
       />
 
       <Stack.Screen
         name="CreatePrivateSpacePost"
         component={CreatePrivateSpacePostView}
-        initialParams={route.params}
         options={{ title: "Create Post" }}
       />
     </Stack.Navigator>

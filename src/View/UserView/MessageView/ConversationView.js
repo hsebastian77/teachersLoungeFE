@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   StyleSheet,
   View,
@@ -12,61 +12,73 @@ import { useRoute, useFocusEffect } from "@react-navigation/native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { SafeAreaView } from "react-native-safe-area-context";
 import App_StyleSheet from "../../../Styles/App_StyleSheet";
-
 import TextBox from "./TextBox";
 import MessageBox from "./MessageBox";
-import { getConversationDetails, getMessages } from "../../../Controller/DirectMessagesManager";
+import {
+  getConversationDetails,
+  getMessages
+} from "../../../Controller/DirectMessagesManager";
+import { useAuth } from "../../../context/AuthContext";
 
 function ConversationView({ navigation }) {
   const route = useRoute();
+  const { user } = useAuth();
+
+  const { conversationId, username, title } = route.params;
+
   const [messages, setMessages] = useState([]);
-  const [convoTitle, setConvoTitle] = useState(route.params.username);
-  let settingIcon = require("../../../../assets/settings.png");
+  const [convoTitle, setConvoTitle] = useState(username);
 
   const height = useHeaderHeight();
+  const settingIcon = require("../../../../assets/settings.png");
 
+  const loadData = async () => {
+    try {
+      const data = await getMessages(conversationId);
+      const convoData = await getConversationDetails(conversationId);
+
+      setMessages(data.reverse());
+      setConvoTitle(convoData.title);
+    } catch (error) {
+      console.log("Conversation load error:", error);
+    }
+  };
+
+  // focus effect: only data
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [conversationId])
+  );
+
+  // header: reacts to state
   useEffect(() => {
     navigation.setOptions({
-      title: convoTitle, // Dynamic title from convoTitle state
+      title: convoTitle,
       headerRight: () => (
         <TouchableOpacity
           style={App_StyleSheet.header_button}
           onPress={() =>
             navigation.navigate("Conversation Info", {
-              conversationId: route.params.conversationId,
-              currentUser: route.params.User.userUserName,
-              username: route.params.username,
-              title: route.params.title,
+              conversationId,
+              currentUser: user.userUserName,
+              username,
+              title,
             })
           }
         >
-          <Image source={settingIcon} style={App_StyleSheet.header_icon} />
+          <Image
+            source={settingIcon}
+            style={App_StyleSheet.header_icon}
+          />
         </TouchableOpacity>
       ),
     });
-  }, [convoTitle, navigation, route.params]);
+  }, [convoTitle]);
 
-  useFocusEffect(() => {
-    loadData(route.params.conversationId);
-  });
-
-  useEffect(() => {
-    // Dynamically set the title when the convoTitle changes
-    navigation.setOptions({
-      title: convoTitle,
-    });
-  }, [convoTitle, navigation]);
-  
-  const loadData = async (conversationId) => {
-    try {
-      const data = await getMessages(conversationId);
-      const convoData = await getConversationDetails(conversationId);
-      data.reverse();
-      setMessages(data);
-      setConvoTitle(convoData.title);
-    } catch (error) {
-      console.log(error);
-    }
+  // Called after sending a message
+  const handleMessageSent = async () => {
+    await loadData();
   };
 
   return (
@@ -81,20 +93,21 @@ function ConversationView({ navigation }) {
             data={messages}
             renderItem={({ item }) => (
               <MessageBox
-                navigation={navigation}
                 sender={item.sender}
+                senderId={item.senderId}
                 message={item.content}
-                incoming={
-                  route.params.User.userUserName !== item.sender
-                }
               />
             )}
             inverted
-            keyExtractor={(_, index) => index.toString()}
+            keyExtractor={(item) => item.id.toString()}
           />
         </View>
+
         <View style={styles.textBoxWrapper}>
-          <TextBox navigation={navigation} details={route.params} />
+          <TextBox
+            conversationId={conversationId}
+            onMessageSent={handleMessageSent}
+          />
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

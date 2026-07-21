@@ -1,9 +1,18 @@
 import React from "react";
-import AuthNavigator from "./src/View/AuthNavigator";
+import { NavigationContainer } from "@react-navigation/native";
+import RootNavigator from "./src/navigation/RootNavigator";
+import { AuthProvider } from "./src/context/AuthContext";
 import { LogBox } from "react-native";
-LogBox.ignoreLogs(["Warning: ..."]); // Ignore log notification by message
-LogBox.ignoreAllLogs(); //Ignore all log notifications
+
+LogBox.ignoreLogs(["Warning: ..."]);
+LogBox.ignoreAllLogs();
 
 export default function App() {
-  return <AuthNavigator />;
+  return (
+    <AuthProvider>
+      <NavigationContainer>
+        <RootNavigator />
+      </NavigationContainer>
+    </AuthProvider>
+  );
 }

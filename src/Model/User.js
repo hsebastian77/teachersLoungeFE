@@ -6,9 +6,9 @@ import Comment from "./Posts/Comment";
 
 
 class User {
-  //The user's acutal name
+  //The user's actual name
   userName = "";
-  //The user's username/email- we tried to refactor the name of this to be clearer but it broke everything
+  //The user's username/email - previous team tried to refactor the name to be clearer but it broke everything
   userUserName = "";
   username = "";
   nickName = "";
@@ -45,7 +45,7 @@ class User {
   }*/
 
   createPost(content, fileUrl) {
-    newPost = new Post(
+    const newPost = new Post(
       null,
       this.userName,
       content,

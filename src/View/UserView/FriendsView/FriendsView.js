@@ -1,28 +1,29 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useCallback } from "react";
+import { useAuth } from "../../../context/AuthContext";
 import {
-  StyleSheet,
   Text,
-  View,
-  Image,
   TouchableOpacity,
   FlatList,
 } from "react-native";
-import { useRoute, useIsFocused } from "@react-navigation/native";
+import { useFocusEffect } from "@react-navigation/native";
 import App_StyleSheet from "../../../Styles/App_StyleSheet.js";
 import SafeArea from "../../SafeArea";
 import { getFriendsList } from "../../../Controller/FriendsManager";
 
 function FriendsView({ navigation }) {
-  const route = useRoute();
-  const isFocused = useIsFocused();
+  const { user } = useAuth();
   const [listOfUsers, setListOfUsers] = useState([]);
-  useEffect(() => {
-    const fetchUsers = async () => {
-      const array = await getFriendsList(route.params.User.userUserName);
-      setListOfUsers(array);
-    };
-    fetchUsers();
-  }, [isFocused]);
+
+  const fetchUsers = async () => {
+    const array = await getFriendsList(user.userUserName);
+    setListOfUsers(array);
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchUsers();
+    }, [user.userUserName])
+  );
 
   return (
     <SafeArea>
@@ -50,4 +51,5 @@ function FriendsView({ navigation }) {
     </SafeArea>
   );
 }
+
 export default FriendsView;

@@ -1,21 +1,17 @@
 import React, { useState, useEffect } from "react";
+import { useAuth } from "../../../context/AuthContext";
 import { TouchableOpacity, FlatList, View, Text, TextInput, Button, Alert } from "react-native";
-import { useRoute, useIsFocused } from "@react-navigation/native";
+import { useIsFocused } from "@react-navigation/native";
 import SafeArea from "../../SafeArea";
 import UserListing from "../FriendsView/userListing";
-import MessagesNavigator from "./MessagesNavigator";
-import FriendsListView from "./FriendsListView";
-import OpenMessageCommand from "../../../Controller/OpenMessageCommand";
 import App_StyleSheet from "../../../Styles/App_StyleSheet";
-import {
-  checkIfFriended,
-  getFriendsList,
-} from "../../../Controller/FriendsManager";
+import { getFriendsList } from "../../../Controller/FriendsManager";
 import { createConversation } from "../../../Controller/DirectMessagesManager";
 
 function CreateNewChatView({ navigation }) {
-  const route = useRoute();
+  const { user } = useAuth();
   const isFocused = useIsFocused();
+
   const [listOfUsers, setListOfUsers] = useState([]);
   const [selectedFriends, setSelectedFriends] = useState([]);
   const [title, setTitle] = useState("Default Conversation");
@@ -23,16 +19,7 @@ function CreateNewChatView({ navigation }) {
   useEffect(() => {
     const fetchUsers = async () => {
       if (isFocused) {
-        console.log("=== DEBUG: CreateNewChatView User Info ===");
-        console.log("Full User object:", route.params.User);
-        console.log("User.userUserName:", route.params.User.userUserName);
-        console.log("User.userName:", route.params.User.userName);
-        console.log("User.userRole:", route.params.User.userRole);
-        console.log("User.school:", route.params.User.school);
-        console.log("=== END DEBUG ===");
-        
-        const array = await getFriendsList(route.params.User.userUserName);
-        console.log("getFriendsList returned:", array);
+        const array = await getFriendsList(user.userUserName);
         setListOfUsers(array);
       }
     };
@@ -41,9 +28,9 @@ function CreateNewChatView({ navigation }) {
 
   const toggleFriendSelection = (email) => {
     if (selectedFriends.includes(email)) {
-      setSelectedFriends(selectedFriends.filter(friend => friend !== email));
+      setSelectedFriends(prev => prev.filter(friend => friend !== email));
     } else {
-      setSelectedFriends([...selectedFriends, email]);
+      setSelectedFriends(prev => [...prev, email]);
     }
   };
 
@@ -53,12 +40,12 @@ function CreateNewChatView({ navigation }) {
       return;
     }
 
-    const members = [route.params.User.userUserName, ...selectedFriends];
+    const members = [user.userUserName, ...selectedFriends];
     const created = await createConversation(members, title || null);
 
     if (created) {
       Alert.alert("Success", "Conversation created successfully.");
-      navigation.goBack(); // Optionally navigate back after creating a conversation
+      navigation.goBack();
     } else {
       Alert.alert("Error", "Conversation already exists or failed to create.");
     }
@@ -79,7 +66,6 @@ function CreateNewChatView({ navigation }) {
           <TouchableOpacity onPress={() => toggleFriendSelection(item.email)}>
             <UserListing
               user={item}
-              onClick={() => toggleFriendSelection(item.email)}
               selected={selectedFriends.includes(item.email)}
             />
           </TouchableOpacity>

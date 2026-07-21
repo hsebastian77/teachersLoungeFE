@@ -1,44 +1,35 @@
-import React, { useState, useEffect } from "react";
-import {
-  StyleSheet,
-  Text,
-  View,
-  SafeAreaView,
-  FlatList,
-  TouchableOpacity,
-} from "react-native";
-import { Avatar, Title } from "react-native-paper";
-import { useRoute, useIsFocused } from "@react-navigation/native";
-import { SelectList } from "react-native-dropdown-select-list";
+import React, { useState, useCallback } from "react";
+import { Text, FlatList, TouchableOpacity } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { useAuth } from "../../../context/AuthContext";
 import SafeArea from "../../SafeArea";
-import PostComponentView from "./PostComponentView";
 import App_StyleSheet from "../../../Styles/App_StyleSheet";
-import {
-  getApprovedPosts,
-  deletePost,
-} from "../../../Controller/PostManager.js";
 import { getUserCommunities } from "../../../Controller/CommunitiesManager.js";
 import Community from "../../../Model/Community.js";
 
 function CommunitiesView({ navigation }) {
-  var route = useRoute();
-  const isFocused = useIsFocused();
+  const { user } = useAuth();
 
-  React.useEffect(() => {
-    if (isFocused) {
-      loadCommunities();
-    }
-  }, [isFocused]);
+  const [communities, setCommunities] = useState([]);
 
-  const [communities, setCommunities] = useState([{ key: "0", value: "" }]);
   const loadCommunities = async () => {
-    const data = await getUserCommunities(route.params.User.userUserName);
+    if (!user?.userUserName) return;
+
+    const data = await getUserCommunities(user.userUserName);
+
     setCommunities(
-      data.map((c) => {
-        return { ["key"]: c.id, ["value"]: c.name };
-      })
+      data.map((c) => ({
+        key: c.id,
+        value: c.name,
+      }))
     );
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      loadCommunities();
+    }, [user?.userUserName])
+  );
 
   return (
     <SafeArea>
@@ -46,18 +37,17 @@ function CommunitiesView({ navigation }) {
         style={App_StyleSheet.content}
         ListEmptyComponent={
           <Text style={App_StyleSheet.list_message}>
-            {"No communities joined"}
+            No communities joined
           </Text>
         }
         data={communities}
-        extraData={communities}
         renderItem={({ item }) => (
           <TouchableOpacity
             style={App_StyleSheet.list_item}
             onPress={() =>
               navigation.navigate("Community", {
                 Community: new Community(item.key, item.value),
-                isMember: true
+                isMember: true,
               })
             }
           >

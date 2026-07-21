@@ -10,8 +10,13 @@ import {
 import { TextInput } from "react-native-paper";
 import App_StyleSheet from "../Styles/App_StyleSheet";
 import { requestPasswordReset } from "../Controller/PasswordResetCommand";
+import { useAuth } from "../context/AuthContext";
+import { useNavigation } from "@react-navigation/native";
 
-function ForgotPasswordView({ navigation }) {
+function ForgotPasswordView() {
+  const { setPendingAuth } = useAuth();
+  const { navigate } = useNavigation();
+
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
@@ -26,6 +31,7 @@ function ForgotPasswordView({ navigation }) {
 
     if (result.ok) {
       setStatusMessage(result.message);
+      setPendingAuth({ email });
     } else {
       setErrorMessage(result.message);
     }
@@ -81,7 +87,7 @@ function ForgotPasswordView({ navigation }) {
 
             <TouchableOpacity
               style={styles.secondaryButton}
-              onPress={() => navigation.navigate("ResetPassword")}
+              onPress={() => navigate("ResetPassword")}
               disabled={isSubmitting}
             >
               <Text style={styles.secondaryButtonText}>I Have a Code</Text>
@@ -89,7 +95,7 @@ function ForgotPasswordView({ navigation }) {
 
             <TouchableOpacity
               style={styles.linkButton}
-              onPress={() => navigation.navigate("Login")}
+              onPress={() => navigate("Login")}
               disabled={isSubmitting}
             >
               <Text style={styles.linkButtonText}>Back to Login</Text>

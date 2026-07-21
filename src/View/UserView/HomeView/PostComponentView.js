@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useAuth } from "../../../context/AuthContext";
 import {
   StyleSheet,
   Text,
@@ -8,263 +9,222 @@ import {
   Linking,
   Alert,
 } from "react-native";
-import { useRoute, useFocusEffect } from "@react-navigation/native";
+import { useNavigation, useRoute, useFocusEffect } from "@react-navigation/native";
 import { likePost } from "../../../Controller/LikePostCommand";
 import { unlikePost } from "../../../Controller/UnlikePostCommand";
 import { getPostLikes } from "../../../Controller/GetPostLikesCommand";
 import { checkLikePost } from "../../../Controller/CheckLikedPostCommand";
 import { deletePost } from "../../../Controller/PostManager";
 
-function PostComponentView({ navigation, post, User, onDeleted }) {
+function PostComponentView({ post, onDeleted }) {
+  const { user } = useAuth();
+  const navigation = useNavigation();
   const route = useRoute();
+
   const [isLiked, setIsLiked] = useState(false);
-  const [likes, setLikes] = useState(Number(post.likes));
+  const [likes, setLikes] = useState(Number(post?.likes || 0));
   const [imageFailed, setImageFailed] = useState(false);
 
-  let likeImg = require("../../../../assets/like.png");
-  let likeFilledImg = require("../../../../assets/like_filled.png");
-  let commentImg = require("../../../../assets/comment.png");
+  const likeImg = require("../../../../assets/like.png");
+  const likeFilledImg = require("../../../../assets/like_filled.png");
+  const commentImg = require("../../../../assets/comment.png");
 
+  // HELPERS
 
   const formatPostTime = (createdAt) => {
-    if (!createdAt) {
-      return "";
-    }
-
-    const timestamp =
-      typeof createdAt === "string" && !createdAt.endsWith("Z")
-        ? createdAt + "Z"
-        : createdAt;
-
-    const date = new Date(timestamp);
-
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const hour = String(date.getHours()).padStart(2, "0");
-    const minute = String(date.getMinutes()).padStart(2, "0");
-    const second = String(date.getSeconds()).padStart(2, "0");
-
-    return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+    if (!createdAt) return "";
+    const date = new Date(createdAt);
+    return date.toLocaleString();
   };
 
   const isImageAttachment = (value) =>
-    typeof value === "string" && /\.(png|jpe?g|gif|webp|bmp|heic|heif|avif)(\?.*)?$/i.test(value);
+    typeof value === "string" &&
+    /\.(png|jpe?g|gif|webp|bmp|heic|heif|avif)(\?.*)?$/i.test(value);
 
   const shouldTryImageRender = (value) => {
-    if (typeof value !== "string" || !value) return false;
-    if (isImageAttachment(value)) return true;
-    return value.includes("s3") && value.includes("x-id=GetObject");
-  };
-
-  useEffect(() => {
-    if (post?.id && User?.userUserName) {
-      async function fetchLikeData() {
-        try {
-          const liked = await checkLikePost(post, User.userUserName);
-          setIsLiked(liked);
-        } catch (error) {
-          console.error("Error fetching like data:", error);
-        }
-      }
-      fetchLikeData();
-    }
-  }, [post, User]);
-
-  // Add focus effect to update likes when returning from PostView
-  useFocusEffect(
-    useCallback(() => {
-      // Check if we have an updated post from the post view
-      if (route.params?.updatedPost && route.params.updatedPost.id === post.id) {
-        setLikes(Number(route.params.updatedPost.likes));
-        post.likes = Number(route.params.updatedPost.likes);
-        // Clear the param to avoid repeat updates
-        navigation.setParams({ updatedPost: undefined });
-      }
-    }, [route.params?.updatedPost])
-  );
-
-  const handleLikeToggle = async () => {
-    try {
-      if (isLiked) {
-        const unlikeSuccess = await unlikePost(post, User.userUserName);
-        if (unlikeSuccess) {
-          setIsLiked(false);
-          setLikes((prevLikes) => prevLikes - 1);
-          post.likes = Math.max(0, post.likes - 1);
-        }
-      } else {
-        const likeSuccess = await likePost(post, User.userUserName);
-        if (likeSuccess) {
-          setIsLiked(true);
-          setLikes((prevLikes) => prevLikes + 1);
-          post.likes += 1;
-        }
-      }
-    } catch (error) {
-      console.error("Error handling like/unlike:", error);
-      Alert.alert("Error", "Something went wrong. Please try again.");
-    }
+    if (!value) return false;
+    return isImageAttachment(value) || value.includes("s3");
   };
 
   const normalizeValue = (value) =>
     typeof value === "string" ? value.trim().toLowerCase() : "";
 
-  const isAdmin = normalizeValue(User?.userRole) === "admin";
+  // PERMISSIONS 
+
+  const isAdmin = normalizeValue(user?.userRole) === "admin";
   const postOwner = normalizeValue(post?.user);
+
   const userIdentifiers = [
-    normalizeValue(User?.userUserName),
-    normalizeValue(User?.username),
+    normalizeValue(user?.userUserName),
+    normalizeValue(user?.username),
   ].filter(Boolean);
-  const isOwner = postOwner ? userIdentifiers.includes(postOwner) : false;
 
-  const canDelete = Boolean(User) && (isAdmin || isOwner);
+  const isOwner = postOwner
+    ? userIdentifiers.includes(postOwner)
+    : false;
 
-  const handleDeletePost = () => {
-    if (!canDelete) return;
+  const canDelete = isAdmin || isOwner;
 
-    deletePost(post.id).then((wasDeleted) => {
-      if (wasDeleted && typeof onDeleted === "function") {
-        onDeleted(post.id);
+  // INIT
+
+  useEffect(() => {
+    const init = async () => {
+      if (!user?.userUserName) return;
+
+      try {
+        const liked = await checkLikePost(post.id, user.userUserName);
+        setIsLiked(liked);
+
+        const totalLikes = await getPostLikes(post.id);
+        setLikes(Number(totalLikes));
+      } catch (error) {
+        console.error("Error initializing likes:", error);
       }
-    });
+    };
+
+    init();
+  }, [user, post.id]);
+
+  // SYNC FROM POSTVIEW
+
+  useFocusEffect(
+    useCallback(() => {
+      if (
+        route.params?.updatedPost &&
+        route.params.updatedPost.id === post.id
+      ) {
+        setLikes(Number(route.params.updatedPost.likes));
+
+        navigation.setParams({ updatedPost: undefined });
+      }
+    }, [route.params?.updatedPost])
+  );
+
+  // ACTIONS
+
+  const handleLikeToggle = async () => {
+    try {
+      if (isLiked) {
+        const success = await unlikePost(post.id, user.userUserName);
+        if (success) {
+          setIsLiked(false);
+          setLikes((prev) => prev - 1);
+        }
+      } else {
+        const success = await likePost(post.id, user.userUserName);
+        if (success) {
+          setIsLiked(true);
+          setLikes((prev) => prev + 1);
+        }
+      }
+    } catch (error) {
+      console.error("Like toggle error:", error);
+      Alert.alert("Error", "Something went wrong.");
+    }
   };
 
+  const handleDeletePost = async () => {
+    if (!canDelete) return;
+
+    try {
+      const wasDeleted = await deletePost(post.id, post.fileUrl);
+
+      if (wasDeleted) {
+        if (typeof onDeleted === "function") {
+          onDeleted(post.id);
+        }
+      }
+    } catch (err) {
+      console.error("Delete failed:", err);
+    }
+  };
+
+  const communityName = post.communityName || post.user;
+
+  // UI
 
   return (
     <TouchableOpacity
       style={styles.post}
-      onPress={() => {
-        navigation.navigate("View Post", {
-          post,
-          User
-        });
-      }}
+      onPress={() => navigation.navigate("PostView", { post })}
     >
       <View style={styles.text}>
-      <Text style={styles.title}>{post.title || "no title"}</Text>
-      {post.createdAt && (
-        <Text style={styles.timestamp}>{formatPostTime(post.createdAt)}</Text>
-      )}
-      {canDelete && (
-        <TouchableOpacity style={styles.deleteButton} onPress={handleDeletePost}>
-          <Text style={styles.deleteButtonText}>Delete</Text>
-        </TouchableOpacity>
-      )}
+        <Text style={styles.title}>{post.title || "No title"}</Text>
+
+        {post.createdAt && (
+          <Text style={styles.timestamp}>
+            {formatPostTime(post.createdAt)}
+          </Text>
+        )}
+
+        {canDelete && (
+          <TouchableOpacity style={styles.deleteButton} onPress={handleDeletePost}>
+            <Text style={styles.deleteButtonText}>Delete</Text>
+          </TouchableOpacity>
+        )}
+
         <Text style={styles.content}>{post.postContent}</Text>
 
         {shouldTryImageRender(post.fileUrl) && !imageFailed && (
           <Image
             style={styles.postImage}
             source={{ uri: post.fileUrl }}
-            resizeMode="cover"
             onError={() => setImageFailed(true)}
           />
         )}
 
-        {post.fileUrl && (!shouldTryImageRender(post.fileUrl) || imageFailed) && (
-          <Text
-            style={styles.linkText}
-            onPress={() => Linking.openURL(post.fileUrl)}
-          >
-            {"Open Attachment"}
-          </Text>
-        )}
+        {post.fileUrl &&
+          (!shouldTryImageRender(post.fileUrl) || imageFailed) && (
+            <Text
+              style={styles.linkText}
+              onPress={() => Linking.openURL(post.fileUrl)}
+            >
+              Open Attachment
+            </Text>
+          )}
       </View>
 
       <View style={styles.footer}>
         <View style={styles.footerSection}>
           <TouchableOpacity onPress={handleLikeToggle}>
-            { }
-            <Image style={styles.icon} source={isLiked ? likeFilledImg : likeImg} />
+            <Image
+              style={styles.icon}
+              source={isLiked ? likeFilledImg : likeImg}
+            />
           </TouchableOpacity>
           <Text>{likes}</Text>
         </View>
 
         <View style={styles.footerSection}>
           <Image style={styles.icon} source={commentImg} />
-          <Text>{post.commentsCount}</Text>
+          <Text>{post.commentsCount || 0}</Text>
         </View>
 
-        <Text style={styles.communityName}>{route.params?.Community ? post.user : (post.communityName || post.user)}</Text>
+        <Text style={styles.communityName}>{communityName}</Text>
       </View>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  post: {
-    width: "90%",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 10,
-    alignSelf: "center",
-    marginBottom: 15,
+  container: {
+    flex: 1,
   },
-  text: {
-    padding: 20,
-  },
-  title: {
-    color: "black",
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
-  timestamp: {
-    color: "#666666",
-    fontSize: 12,
-    marginBottom: 10,
-  },
-  deleteButton: {
-    alignSelf: "flex-start",
-    backgroundColor: "#FEE2E2",
-    borderRadius: 8,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    marginBottom: 10,
-  },
-  deleteButtonText: {
-    color: "#B3261E",
-    fontWeight: "600",
-    fontSize: 12,
-  },
-  content: {
-    color: "black",
-    fontSize: 15,
-  },
-  postImage: {
-    width: "100%",
-    height: 220,
-    borderRadius: 12,
-    marginTop: 12,
-  },
-  linkText: {
-    color: "blue",
-    fontSize: 15,
-    marginTop: 10,
-  },
-  footer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderRadius: 9,
-    backgroundColor: "#E7ECFE",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-  },
-  footerSection: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingRight: 8,
-  },
-  icon: {
-    width: 30,
-    height: 30,
-    marginHorizontal: 5,
-  },
-  communityName: {
-    marginLeft: "auto",
-    fontWeight: "bold",
-    marginHorizontal: 5,
+  fab: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    backgroundColor: '#6382E8',
+    borderRadius: 28,
+    width: 56,
+    height: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
 });
 

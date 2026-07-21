@@ -1,8 +1,6 @@
 import { React, useEffect, useRef, useState } from "react";
 import { Text, View, TouchableOpacity, Animated, Image, KeyboardAvoidingView, Platform, Linking, Alert, Modal } from "react-native";
 import { TextInput } from "react-native-paper";
-//import LogInCommand from "../Controller/LogInCommand";
-import { login } from "../Controller/LogInCommand";
 import App_StyleSheet from "../Styles/App_StyleSheet";
 import { FontAwesome } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
@@ -10,6 +8,8 @@ import * as AuthSession from 'expo-auth-session';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { handleGoogleLogin, handleLinkedInLogin, handleAppleLogin } from '../Controller/SocialLoginCommand';
 import { WebView } from 'react-native-webview';
+import { login } from "../Controller/LogInCommand";
+import { useAuth } from "../context/AuthContext";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -35,6 +35,7 @@ const LINKEDIN_CLIENT_ID = '77bw10d90022pu';
 const LINKEDIN_REDIRECT_URI = 'https://omegaeducationaltechsolutions.com/linkedin-redirect';
 
 function SignInView({ navigation }) {
+  const { login: authLogin, setPendingAuth } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
@@ -92,10 +93,22 @@ function SignInView({ navigation }) {
       const codeVerifier = googleRequest?.codeVerifier;
 
       const clientId = Platform.OS === 'android' ? GOOGLE_ANDROID_CLIENT_ID : GOOGLE_IOS_CLIENT_ID;
-        const result = await handleGoogleLogin(navigation, code, GOOGLE_REDIRECT_URI, codeVerifier, clientId);
+        const result = await handleGoogleLogin(code, GOOGLE_REDIRECT_URI, codeVerifier, clientId);
+
         if (!result?.ok) {
-          setAuthError(result?.message || "Google sign in failed. Please try again.");
+          setAuthError(result?.message || "Google sign in failed.");
+          return;
         }
+
+        if (result.requires2FA) {
+          setPendingAuth({
+            email: result.email,
+            tempToken: result.tempToken,
+          });
+        } else {
+          authLogin(result.user);
+        }
+
         setAuthLoading(false);
       } else if (googleResponse?.type === 'error') {
         setAuthLoading(false);
@@ -132,7 +145,7 @@ function SignInView({ navigation }) {
   };
 
   // Handle WebView navigation state changes
-  const handleWebViewNavigationStateChange = (navState) => {
+  const handleWebViewNavigationStateChange = async (navState) => {
     // Check if the URL contains our redirect URI
     if (navState.url && navState.url.includes('omegaeducationaltechsolutions.com/linkedin-redirect')) {
       try {
@@ -159,7 +172,20 @@ function SignInView({ navigation }) {
         }
 
         // Send code to backend for processing
-        handleLinkedInLogin(navigation, code).finally(() => setAuthLoading(false));
+        const result = await handleLinkedInLogin(code);
+
+        if (!result?.ok) {
+          setAuthError(result?.message || "LinkedIn login failed.");
+        } else if (result.requires2FA) {
+          setPendingAuth({
+            email: result.email,
+            tempToken: result.tempToken,
+          });
+        } else {
+          authLogin(result.user);
+        }
+
+        setAuthLoading(false);
         
       } catch (error) {
         setAuthLoading(false);
@@ -214,26 +240,34 @@ function SignInView({ navigation }) {
 
         {authError ? <Text style={App_StyleSheet.authErrorText}>{authError}</Text> : null}
         
-
-        
         <TouchableOpacity
           style={App_StyleSheet.default_button}
-          onPress={
-            async () => {
-              setAuthLoading(true);
-              setAuthError("");
-              try {
-                const result = await login({ navigation }, email, password);
-                if (!result?.ok) {
-                  setAuthError(result?.message || "Unable to sign in.");
-                }
-              } catch (error) {
-                setAuthError("Unable to sign in. Please try again.");
-              } finally {
-                setAuthLoading(false);
+          onPress={async () => {
+            setAuthLoading(true);
+            setAuthError("");
+
+            try {
+              const result = await login(email, password);
+
+              if (!result?.ok) {
+                setAuthError(result?.message || "Unable to sign in.");
+                return;
               }
+
+              if (result.requires2FA) {
+                setPendingAuth({
+                  email: result.email,
+                  tempToken: result.tempToken,
+                });
+              } else {
+                authLogin(result.user);
+              }
+            } catch (error) {
+              setAuthError("Unable to sign in. Please try again.");
+            } finally {
+              setAuthLoading(false);
             }
-          }
+          }}
           disabled={authLoading}
         >
           <Text style={App_StyleSheet.text}>{authLoading ? "Signing In..." : "Sign In"}</Text>
@@ -317,7 +351,18 @@ function SignInView({ navigation }) {
                     AppleAuthentication.AppleAuthenticationScope.EMAIL,
                   ],
                 });
-                await handleAppleLogin(navigation, credential);
+                const result = await handleAppleLogin(credential);
+
+                if (!result?.ok) {
+                  setAuthError(result?.message || "Apple sign in failed.");
+                } else if (result.requires2FA) {
+                  setPendingAuth({
+                    email: result.email,
+                    tempToken: result.tempToken,
+                  });
+                } else {
+                  authLogin(result.user);
+                }
               } catch (e) {
                 if (e.code === 'ERR_REQUEST_CANCELED') {
                   // User canceled Apple sign in

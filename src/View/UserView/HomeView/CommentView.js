@@ -1,31 +1,43 @@
 import React from "react";
-import { StyleSheet, Text, View, Image, TouchableOpacity } from "react-native";
+import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
+import { useAuth } from "../../../context/AuthContext";
 import { deleteComment } from "../../../Controller/PostManager";
 
-function CommentView({ comment, User, onDeleted }) {
-  const likeImg = require("../../../../assets/like.png");
+function CommentView({ comment, onDeleted }) {
+  const { user } = useAuth();
 
   const normalizeValue = (value) =>
     typeof value === "string" ? value.trim().toLowerCase() : "";
 
-  const isAdmin = normalizeValue(User?.userRole) === "admin";
+  const isAdmin = normalizeValue(user?.userRole) === "admin";
   const commentOwner = normalizeValue(comment?.userName);
+
   const userIdentifiers = [
-    normalizeValue(User?.userUserName),
-    normalizeValue(User?.username),
+    normalizeValue(user?.userUserName),
+    normalizeValue(user?.username),
   ].filter(Boolean);
-  const isOwner = commentOwner ? userIdentifiers.includes(commentOwner) : false;
 
-  const canDelete = Boolean(User) && Boolean(comment?.id) && (isAdmin || isOwner);
+  const isOwner = commentOwner
+    ? userIdentifiers.includes(commentOwner)
+    : false;
 
-  const handleDeleteComment = () => {
+  const canDelete =
+    Boolean(user) &&
+    Boolean(comment?.id) &&
+    (isAdmin || isOwner);
+
+  const handleDeleteComment = async () => {
     if (!canDelete) return;
 
-    deleteComment(comment.id).then((wasDeleted) => {
+    try {
+      const wasDeleted = await deleteComment(comment.id);
+
       if (wasDeleted && typeof onDeleted === "function") {
         onDeleted(comment.id);
       }
-    });
+    } catch (err) {
+      console.error("Delete comment failed:", err);
+    }
   };
 
   return (
@@ -33,18 +45,24 @@ function CommentView({ comment, User, onDeleted }) {
       <View style={styles.text}>
         <Text style={styles.content}>{comment.content}</Text>
       </View>
+
       <View style={styles.footer}>
         <View style={styles.footerSection}>
           <Text>{comment.likes ? comment.likes : 0} {"likes"}</Text>
         </View>
 
         {canDelete && (
-          <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteComment}>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={handleDeleteComment}
+          >
             <Text style={styles.deleteButtonText}>Delete</Text>
           </TouchableOpacity>
         )}
 
-        <Text style={styles.commentUserName}>{comment.userName}</Text>
+        <Text style={styles.commentUserName}>
+          {comment.userName}
+        </Text>
       </View>
     </View>
   );
@@ -78,11 +96,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingRight: 8,
-  },
-  icon: {
-    width: 25,
-    height: 25,
-    marginHorizontal: 5,
   },
   deleteButton: {
     backgroundColor: "#FEE2E2",

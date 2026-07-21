@@ -58,6 +58,12 @@
       "expo-mail-composer",
       "expo-web-browser",
       "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Teachers' Lounge to access your photos so you can attach images to posts."
+        }
+      ],
       "expo-splash-screen"
     ],
     "extra": {
