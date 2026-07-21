@@ -122,6 +122,7 @@ async function login(email, password) {
         requires2FA: true,
         user,
         email: user.userEmail,
+        tempToken: mfaToken || fullToken,
       };
     }
 

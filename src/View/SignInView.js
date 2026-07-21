@@ -257,7 +257,7 @@ function SignInView({ navigation }) {
               if (result.requires2FA) {
                 setPendingAuth({
                   email: result.email,
-                  tempToken: result.Temptoken,
+                  tempToken: result.tempToken,
                 });
               } else {
                 authLogin(result.user);
