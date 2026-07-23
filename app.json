@@ -64,7 +64,8 @@
           "photosPermission": "Allow Teachers' Lounge to access your photos so you can attach images to posts."
         }
       ],
-      "expo-splash-screen"
+      "expo-splash-screen",
+      "expo-status-bar"
     ],
     "extra": {
       "eas": {
