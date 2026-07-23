@@ -20,6 +20,7 @@ import { checkLikePost } from "../../../Controller/CheckLikedPostCommand";
 import { getPostLikes } from "../../../Controller/GetPostLikesCommand";
 import { deletePost } from "../../../Controller/PostManager";
 import { useFocusEffect } from '@react-navigation/native';
+import { getAttachmentName, isImagePostAttachment } from "../../../Utils/AttachmentUtils";
 
 function PostView({ route, navigation }) {
   const [post, setPost] = useState(route.params?.post);
@@ -50,14 +51,8 @@ function PostView({ route, navigation }) {
     return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
   };
 
-  const isImageAttachment = (value) =>
-    typeof value === "string" && /\.(png|jpe?g|gif|webp|bmp|heic|heif|avif)(\?.*)?$/i.test(value);
-
-  const shouldTryImageRender = (value) => {
-    if (typeof value !== "string" || !value) return false;
-    if (isImageAttachment(value)) return true;
-    return value.includes("s3") && value.includes("x-id=GetObject");
-  };
+  const attachmentName = getAttachmentName(post);
+  const shouldRenderImage = isImagePostAttachment(post) && !imageFailed;
 
   useEffect(() => {
     if (post?.id) {
@@ -146,7 +141,7 @@ function PostView({ route, navigation }) {
       <ScrollView style={styles.container}>
       {canDelete && (
   <TouchableOpacity onPress={handleDeletePost} style={styles.deletePostButton}>
-    <Text>{"Delete Post"}</Text>
+    <Text style={styles.deletePostButtonText}>{"Delete Post"}</Text>
   </TouchableOpacity>
 )}
 
@@ -157,19 +152,20 @@ function PostView({ route, navigation }) {
               <Text style={styles.timestamp}>{formatPostTime(post.createdAt)}</Text>
               )}
             <Text style={styles.content}>{post.postContent}</Text>
-            {shouldTryImageRender(post.fileUrl) && !imageFailed && (
-              <Image
-                style={styles.postImage}
-                source={{ uri: post.fileUrl }}
-                resizeMode="cover"
-                onError={() => setImageFailed(true)}
-              />
-            )}
-            {post.fileUrl && (!shouldTryImageRender(post.fileUrl) || imageFailed) && (
+            {shouldRenderImage ? (
+              <TouchableOpacity onPress={() => Linking.openURL(post.fileUrl)}>
+                <Image
+                  style={styles.postImage}
+                  source={{ uri: post.fileUrl }}
+                  resizeMode="contain"
+                  onError={() => setImageFailed(true)}
+                />
+              </TouchableOpacity>
+            ) : post.fileUrl ? (
               <Text style={styles.linkText} onPress={() => Linking.openURL(post.fileUrl)}>
-                {"Open Attachment"}
+                {`Open attachment: ${attachmentName}`}
               </Text>
-            )}
+            ) : null}
           </View>
           <View style={styles.footer}>
             <View style={styles.footerSection}>
@@ -302,13 +298,17 @@ const styles = StyleSheet.create({
     marginLeft: 15,
   },
   deletePostButton: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#C86262",
     width: "90%",
     alignSelf: "center",
     padding: 10,
     borderRadius: 10,
     marginBottom: 15,
     alignItems: "center",
+  },
+  deletePostButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
   }
 });
 

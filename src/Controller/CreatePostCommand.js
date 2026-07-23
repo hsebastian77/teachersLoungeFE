@@ -3,7 +3,7 @@ import * as SecureStore from "expo-secure-store";
 import { Alert } from "react-native";
 
 // Creates a new post and adds to the database
-async function CreatePost({ navigation }, title, content, file, user) {
+async function CreatePost(title, content, file, user) {
   if (content != "") {
     let postUrl = apiUrl + createPostRoute;
     console.log(postUrl)
@@ -28,12 +28,14 @@ async function CreatePost({ navigation }, title, content, file, user) {
     const data = await response.json();
     if (!response.ok) {
       Alert.alert("Error", "Unable to create post");
+      return false;
     } else {
-      user.createPost(content, attachment.url || null);
       Alert.alert("Success", "Post created");
-      navigation.navigate("Home");
+      return true;
     }
   }
+
+  return false;
 }
 
 export default CreatePost;

@@ -64,6 +64,25 @@ function CreatePostView({ navigation }) {
   const [selectedCommunityName, setSelectedCommunityName] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadingType, setUploadingType] = useState(null);
+
+  const handleAttachmentUpload = async (picker, type) => {
+    if (uploadingType || isSubmitting) return;
+
+    setUploadingType(type);
+    setSubmitError("");
+    try {
+      const selectedFile = await picker();
+      if (selectedFile?.url) {
+        setFile(selectedFile);
+        // A newly uploaded attachment should take precedence over an old URL.
+        setAttachmentUrl("");
+        setAttachmentName("");
+      }
+    } finally {
+      setUploadingType(null);
+    }
+  };
 
   async function fetchCommunities() {
     const data = await getUserCommunities(route.params?.User?.userUserName);
@@ -127,17 +146,21 @@ function CreatePostView({ navigation }) {
     const attachment = buildAttachment();
 
     try {
-      if (selectedCommunityId && selectedCommunityId !== "None") {
-        await createCommunityPost(
-          { navigation },
+      const created = selectedCommunityId && selectedCommunityId !== "None"
+        ? await createCommunityPost(
           postTitle,
           postContent.trim(),
           attachment,
           User,
           selectedCommunityId
-        );
-      } else {
-        await CreatePost({ navigation }, postTitle, postContent.trim(), attachment, User);
+        )
+        : await CreatePost(postTitle, postContent.trim(), attachment, User);
+
+      if (created) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "Teacher's Lounge", params: { User } }],
+        });
       }
     } finally {
       setIsSubmitting(false);
@@ -206,22 +229,22 @@ function CreatePostView({ navigation }) {
           <View style={styles.attachmentActions}>
             <TouchableOpacity
               style={styles.secondaryButton}
-              onPress={async () => {
-                let selectedFile = await selectDoc();
-                setFile(selectedFile || EMPTY_FILE);
-              }}
+              onPress={() => handleAttachmentUpload(selectDoc, "file")}
+              disabled={Boolean(uploadingType) || isSubmitting}
             >
-              <Text style={styles.secondaryButtonText}>Upload File</Text>
+              <Text style={styles.secondaryButtonText}>
+                {uploadingType === "file" ? "Uploading..." : "Upload File"}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.secondaryButton}
-              onPress={async () => {
-                let selectedFile = await selectPic(false);
-                setFile(selectedFile || EMPTY_FILE);
-              }}
+              onPress={() => handleAttachmentUpload(() => selectPic(false), "image")}
+              disabled={Boolean(uploadingType) || isSubmitting}
             >
-              <Text style={styles.secondaryButtonText}>Upload Image</Text>
+              <Text style={styles.secondaryButtonText}>
+                {uploadingType === "image" ? "Uploading..." : "Upload Image"}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -264,7 +287,7 @@ function CreatePostView({ navigation }) {
             <TouchableOpacity
               style={styles.primaryButton}
               onPress={handleSubmit}
-              disabled={isSubmitting}
+              disabled={isSubmitting || Boolean(uploadingType)}
             >
               <Text style={styles.primaryButtonText}>{isSubmitting ? "Submitting..." : "Post"}</Text>
             </TouchableOpacity>

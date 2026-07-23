@@ -1,150 +1,153 @@
 
-import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
+import { File as ExpoFile } from 'expo-file-system';
 import File from "../Model/File.js";
 import * as SecureStore from 'expo-secure-store';
-import { Alert, LogBox } from "react-native";
+import { Alert } from "react-native";
 import { apiUrl, fileUploadRoute } from "@env";
 
-//Allows users to select a document then upload to s3 
+class UploadError extends Error {
+  constructor(message, status = 0) {
+    super(message);
+    this.name = "UploadError";
+    this.status = status;
+  }
+}
+
+const readUploadError = async (response) => {
+  const responseText = await response.text();
+  if (!responseText) return `Upload failed (status ${response.status})`;
+
+  try {
+    const body = JSON.parse(responseText);
+    return body.message || body.error || `Upload failed (status ${response.status})`;
+  } catch {
+    return responseText;
+  }
+};
+
+const showUploadError = async (error, attachmentKind) => {
+  console.error(`${attachmentKind} selection/upload failed:`, error);
+
+  if (error?.status === 401) {
+    await SecureStore.deleteItemAsync("token");
+    Alert.alert(
+      "Session expired",
+      "Your login has expired. Please sign in again before uploading an attachment."
+    );
+    return;
+  }
+
+  if (error?.status === 413) {
+    Alert.alert("File too large", "Attachments must be smaller than 50 MB.");
+    return;
+  }
+
+  if (error instanceof TypeError && /fetch|network/i.test(error.message || "")) {
+    Alert.alert(
+      "Cannot reach the server",
+      `Make sure the backend is running and this device can access ${apiUrl}.`
+    );
+    return;
+  }
+
+  Alert.alert(
+    "Upload failed",
+    error?.message || `Unable to upload the selected ${attachmentKind.toLowerCase()}.`
+  );
+};
+
+const uploadAsset = async ({ uri, mimeType, name, nativeFile }, isProfilePic = false) => {
+  const uploadData = new FormData();
+  // Expo SDK 57's fetch implementation no longer accepts React Native's
+  // legacy `{ uri, type, name }` FormData part. ExpoFile implements Blob and
+  // exposes bytes(), which is the supported native multipart representation.
+  const multipartFile = nativeFile || new ExpoFile(uri);
+  uploadData.append("file", multipartFile);
+  uploadData.append("isProfilePic", isProfilePic ? "true" : "false");
+
+  if (isProfilePic) {
+    const username = await SecureStore.getItemAsync("username");
+    if (username) uploadData.append("email", username);
+  }
+
+  const response = await fetch(apiUrl + fileUploadRoute, {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + await SecureStore.getItemAsync("token"),
+    },
+    body: uploadData,
+  });
+
+  if (!response.ok) {
+    throw new UploadError(await readUploadError(response), response.status);
+  }
+
+  const result = await response.json();
+  const publicUrl = result.url ||
+    `https://${result.bucket}.s3.us-east-2.amazonaws.com/${result.file}`;
+
+  return new File(publicUrl, name, mimeType);
+};
+
+// Allows users to select a document then upload it to S3.
 
 async function selectDoc() {
-  // URL for server 
-  let urlUpload = apiUrl + fileUploadRoute;
-  console.log(urlUpload)
-  var result = await DocumentPicker.getDocumentAsync({});
-
-  // Result is not null
-  console.log(result);
-  
-  if (result) {
-    let uploadData = new FormData();
-    uploadData.append('file', {
-      uri: result.assets[0].uri,
-      type: result.assets[0].mimeType,
-      name: result.assets[0].name
+  try {
+    const result = await ExpoFile.pickFileAsync({
+      mimeTypes: "*/*",
+      multipleFiles: false,
     });
 
-    /* Output the uri, type, and name of the file
-    console.log(result.assets[0].uri);
-    console.log(result.assets[0].mimeType);
-    console.log(result.assets[0].name);
-    */
-
-    // Makes call to fileUpload route, currently set to local host but will be changed to the server url
-    const responseOfFileUpload = await fetch(urlUpload, {
-      method: 'POST',
-      headers: {
-        //'Content-Type': 'multipart/form-data',
-        'Authorization': "Bearer " + await SecureStore.getItemAsync("token")
-      },
-      body: uploadData,
-    });
-
-    let bucket = "";
-    let fileUrl = "";
-    let publicFileUrl = "";
-    if (responseOfFileUpload.status == 200) {
-      let responseUpload = await responseOfFileUpload.json();
-      bucket = responseUpload.bucket;
-      fileUrl = responseUpload.file;
-      publicFileUrl = responseUpload.url || `https://${bucket}.s3.us-east-2.amazonaws.com/${fileUrl}`;
-    } else {
-      console.log("Unable to connect to server when uploading file, check that the url is correct and the the server is running...");
-      Alert.alert('Failed to upload file')
+    if (result.canceled || !result.result) {
+      return new File("", "", "");
     }
 
-    // Log the public file url
-    console.log("Public file url: " + publicFileUrl);
-
-    // Return the file object
-    const f = new File(publicFileUrl, fileUrl, result.assets[0].mimeType || "");
-    console.log(f);
-    return f;
-
-  } else return new File("", "", "");
+    const selectedFile = result.result;
+    return await uploadAsset({
+      uri: selectedFile.uri,
+      mimeType: selectedFile.type || "application/octet-stream",
+      name: selectedFile.name || `attachment-${Date.now()}`,
+      nativeFile: selectedFile,
+    });
+  } catch (error) {
+    await showUploadError(error, "File");
+    return new File("", "", "");
+  }
 }
 
 async function selectPic(isProfilePic) {
-  // URL for server 
-  let urlUpload = apiUrl + fileUploadRoute;
-  console.log(urlUpload)
-  
-  let result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ['images', 'videos'],
-    allowsEditing: true,
-    aspect: [4, 3],
-    quality: 1,
-  });
-
-  // Result is not null
-  console.log(result);
-  
-  if (result && !result.canceled && result.assets && result.assets.length > 0) {
-    let uploadData = new FormData();
-    const mimeType = result.assets[0].mimeType;
-    const username = await SecureStore.getItemAsync("username");
-
-    // Strip email part of the username
-    const emailPreAt = username.split("@")[0]; // Part of the username before the @ symbol in the email
-
-    const mimeSubType = mimeType.split("/")[1] || "jpg";
-
-    uploadData.append('file', {
-      uri: result.assets[0].uri,
-      type: mimeType,
-      // No name will be attached to this by default, see Expo ImagePicker docs
-      // Using profilePictureMMDDYYYYHHMMSS.png as a default name
-      name: `${emailPreAt}profilePicture${Date.now()}.${mimeSubType}`
-    });
-
-    // Specify if the image upload is for a post or profile picture
-    if (isProfilePic) {
-      uploadData.append('isProfilePic', 'true');
-      uploadData.append('email', username);
-    } else {
-      uploadData.append('isProfilePic', 'false');
-    }    
-
-    /* Output the uri, type, and name of the file
-    console.log(uploadData.uri);
-    console.log(uploadData.type);
-    console.log(uploadData.name);
-    console.log(uploadData.email);*/
-
-    // Makes call to fileUpload route, currently set to local host but will be changed to the server url
-    const responseOfFileUpload = await fetch(urlUpload, {
-      method: 'POST',
-      headers: {
-        //'Content-Type': 'multipart/form-data',
-        'Authorization': "Bearer " + await SecureStore.getItemAsync("token")
-      },
-      body: uploadData,
-    });
-
-    let bucket = "";
-    let fileUrl = "";
-    let publicFileUrl = "";
-    if (responseOfFileUpload.status == 200) {
-      let responseUpload = await responseOfFileUpload.json();
-      bucket = responseUpload.bucket;
-      fileUrl = responseUpload.file;
-      publicFileUrl = responseUpload.url || `https://${bucket}.s3.us-east-2.amazonaws.com/${fileUrl}`;
-      Alert.alert('Image upload was successful!')
-    } else {
-      console.log("Unable to connect to server when uploading file, check that the url is correct and the the server is running...");
-      Alert.alert('Failed to upload file')
+  try {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(
+        "Photo permission required",
+        "Please allow photo-library access to upload an image."
+      );
+      return new File("", "", "");
     }
 
-    // Log the public file url
-    console.log("Public file url: " + publicFileUrl);
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: "images",
+      allowsEditing: Boolean(isProfilePic),
+      ...(isProfilePic ? { aspect: [4, 3] } : {}),
+      quality: 1,
+    });
 
-    // Return the file object
-    const f = new File(publicFileUrl, fileUrl, mimeType || "");
-    console.log("Logging the file to be returned\n" + f);
-    return f;
+    if (result.canceled || !result.assets?.length) {
+      return new File("", "", "");
+    }
 
-  } else return new File("", "", "");
+    const asset = result.assets[0];
+    const mimeType = asset.mimeType || "image/jpeg";
+    const extension = mimeType.split("/")[1] || "jpg";
+    const name = asset.fileName || `image-${Date.now()}.${extension}`;
+
+    return await uploadAsset({ uri: asset.uri, mimeType, name }, isProfilePic);
+  } catch (error) {
+    await showUploadError(error, "Image");
+    return new File("", "", "");
+  }
 }
 
 export { selectDoc, selectPic };

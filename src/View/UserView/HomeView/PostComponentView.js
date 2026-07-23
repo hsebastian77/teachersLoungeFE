@@ -14,6 +14,7 @@ import { unlikePost } from "../../../Controller/UnlikePostCommand";
 import { getPostLikes } from "../../../Controller/GetPostLikesCommand";
 import { checkLikePost } from "../../../Controller/CheckLikedPostCommand";
 import { deletePost } from "../../../Controller/PostManager";
+import { getAttachmentName, isImagePostAttachment } from "../../../Utils/AttachmentUtils";
 
 function PostComponentView({ navigation, post, User, onDeleted }) {
   const route = useRoute();
@@ -48,13 +49,12 @@ function PostComponentView({ navigation, post, User, onDeleted }) {
     return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
   };
 
-  const isImageAttachment = (value) =>
-    typeof value === "string" && /\.(png|jpe?g|gif|webp|bmp|heic|heif|avif)(\?.*)?$/i.test(value);
+  const attachmentName = getAttachmentName(post);
+  const shouldRenderImage = isImagePostAttachment(post) && !imageFailed;
 
-  const shouldTryImageRender = (value) => {
-    if (typeof value !== "string" || !value) return false;
-    if (isImageAttachment(value)) return true;
-    return value.includes("s3") && value.includes("x-id=GetObject");
+  const openAttachment = (event) => {
+    event?.stopPropagation?.();
+    if (post.fileUrl) Linking.openURL(post.fileUrl);
   };
 
   useEffect(() => {
@@ -141,35 +141,39 @@ function PostComponentView({ navigation, post, User, onDeleted }) {
         });
       }}
     >
-      <View style={styles.text}>
-      <Text style={styles.title}>{post.title || "no title"}</Text>
-      {post.createdAt && (
-        <Text style={styles.timestamp}>{formatPostTime(post.createdAt)}</Text>
-      )}
-      {canDelete && (
-        <TouchableOpacity style={styles.deleteButton} onPress={handleDeletePost}>
-          <Text style={styles.deleteButtonText}>Delete</Text>
-        </TouchableOpacity>
-      )}
-        <Text style={styles.content}>{post.postContent}</Text>
+      <View style={styles.postBody}>
+        <View style={styles.text}>
+          <Text style={styles.title}>{post.title || "no title"}</Text>
+          {post.createdAt && (
+            <Text style={styles.timestamp}>{formatPostTime(post.createdAt)}</Text>
+          )}
+          {canDelete && (
+            <TouchableOpacity style={styles.deleteButton} onPress={handleDeletePost}>
+              <Text style={styles.deleteButtonText}>Delete</Text>
+            </TouchableOpacity>
+          )}
+          <Text style={styles.content}>{post.postContent}</Text>
+        </View>
 
-        {shouldTryImageRender(post.fileUrl) && !imageFailed && (
-          <Image
-            style={styles.postImage}
-            source={{ uri: post.fileUrl }}
-            resizeMode="cover"
-            onError={() => setImageFailed(true)}
-          />
-        )}
-
-        {post.fileUrl && (!shouldTryImageRender(post.fileUrl) || imageFailed) && (
-          <Text
-            style={styles.linkText}
-            onPress={() => Linking.openURL(post.fileUrl)}
-          >
-            {"Open Attachment"}
-          </Text>
-        )}
+        {post.fileUrl ? (
+          <TouchableOpacity style={styles.attachmentContainer} onPress={openAttachment}>
+            {shouldRenderImage ? (
+              <Image
+                style={styles.postImage}
+                source={{ uri: post.fileUrl }}
+                resizeMode="cover"
+                onError={() => setImageFailed(true)}
+              />
+            ) : (
+              <View style={styles.filePreview}>
+                <Text style={styles.fileLabel}>FILE</Text>
+                <Text style={styles.fileName} numberOfLines={1} ellipsizeMode="tail">
+                  {attachmentName}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       <View style={styles.footer}>
@@ -201,7 +205,20 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   text: {
+    flex: 1,
     padding: 20,
+    paddingRight: 10,
+  },
+  postBody: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  attachmentContainer: {
+    width: 100,
+    minHeight: 96,
+    marginRight: 14,
+    alignItems: "center",
+    justifyContent: "center",
   },
   title: {
     color: "black",
@@ -216,14 +233,14 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     alignSelf: "flex-start",
-    backgroundColor: "#FEE2E2",
+    backgroundColor: "#C86262",
     borderRadius: 8,
     paddingVertical: 4,
     paddingHorizontal: 10,
     marginBottom: 10,
   },
   deleteButtonText: {
-    color: "#B3261E",
+    color: "#FFFFFF",
     fontWeight: "600",
     fontSize: 12,
   },
@@ -232,15 +249,31 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   postImage: {
-    width: "100%",
-    height: 220,
-    borderRadius: 12,
-    marginTop: 12,
+    width: 88,
+    height: 88,
+    borderRadius: 10,
+    backgroundColor: "#EEF3FF",
   },
-  linkText: {
-    color: "blue",
-    fontSize: 15,
-    marginTop: 10,
+  filePreview: {
+    width: 92,
+    minHeight: 72,
+    padding: 8,
+    borderRadius: 10,
+    backgroundColor: "#EEF3FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fileLabel: {
+    color: "#6382E8",
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 5,
+  },
+  fileName: {
+    width: "100%",
+    color: "#333333",
+    fontSize: 12,
+    textAlign: "center",
   },
   footer: {
     flexDirection: "row",

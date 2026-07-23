@@ -173,13 +173,16 @@ async function getCommunityPosts(communityID, userEmail) {
         new Post(
           data[count].postid,
           data[count].username || data[count].email,
+          data[count].title,
           data[count].content,
           data[count].likescount,
           [],
           data[count].fileurl,
           data[count].communityname,
           data[count].commentscount,
-          data[count].createdat
+          data[count].createdat,
+          data[count].filedisplayname,
+          data[count].filetype
         )
       );
       count = count + 1;
@@ -190,7 +193,6 @@ async function getCommunityPosts(communityID, userEmail) {
 
 
 async function createCommunityPost(
-  { navigation },
   title,
   content,
   file,
@@ -221,12 +223,14 @@ async function createCommunityPost(
     const data = await response.json();
     if (!response.ok) {
       Alert.alert("Error", "Unable to create post");
+      return false;
     } else {
-      user.createPost(content, attachment.url || null);
       Alert.alert("Success", "Post created");
-      navigation.goBack();
+      return true;
     }
   }
+
+  return false;
 }
 
 export {
