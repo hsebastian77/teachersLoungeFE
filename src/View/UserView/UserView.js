@@ -8,6 +8,7 @@ import MessagesNavigator from "./MessageView/MessagesNavigator.js";
 import ProfileNavigator from "./ProfileView/ProfileNavigator.js";
 import FriendsNavigator from "./FriendsView/FriendsNavigator.js";
 import PrivateSpacesNavigator from "./PrivateSpacesView/PrivateSpacesNavigator.js";
+import ResourcesNavigator from "./ResourcesView/ResourcesNavigator.js";
 
 const Tab = createBottomTabNavigator();
 
@@ -69,6 +70,18 @@ function TabNavigator() {
         options={{
           tabBarIcon: ({ size, color }) => (
             <Entypo name="message" size={size} color={color} />
+          ),
+          headerShown: false,
+        }}
+      />
+
+      <Tab.Screen
+        name="Resources"
+        component={ResourcesNavigator}
+        initialParams={route?.params}
+        options={{
+          tabBarIcon: ({ size, color }) => (
+            <Entypo name="open-book" size={size} color={color} />
           ),
           headerShown: false,
         }}

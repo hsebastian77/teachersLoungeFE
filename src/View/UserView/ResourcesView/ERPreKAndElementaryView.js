@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, Linking } from "react-native";
 import { useRoute } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import SafeArea from "../../SafeArea";
-import { FlatList } from "react-native-gesture-handler";
+import { FlatList } from "react-native";
 import Resources from "../../../Model/Resources";
 import App_StyleSheet from "../../../Styles/App_StyleSheet";
 

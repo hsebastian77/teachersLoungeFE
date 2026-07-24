@@ -23,7 +23,7 @@ function ResourcesView({ navigation }) {
   let healthImg = require("../../../../assets/mentalhealth.jpg");
   let eduImg = require("../../../../assets/edu.jpg");
   let profImg = require("../../../../assets/prof.jpg");
-  let logo = require("../../../../assets/Logo_rev.jpg");
+  let logo = require("../../../../assets/logo.png");
   return (
     <SafeArea>
       <View style={App_StyleSheet.resource_backGround}>

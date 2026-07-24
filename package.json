@@ -38,7 +38,6 @@
     "react-native-app-auth": "^8.0.3",
     "react-native-dotenv": "^3.4.8",
     "react-native-dropdown-select-list": "^2.0.5",
-    "react-native-gesture-handler": "~2.32.0",
     "react-native-otp-input": "^1.0.12",
     "react-native-otp-verify": "^1.1.8",
     "react-native-paper": "^4.12.5",
