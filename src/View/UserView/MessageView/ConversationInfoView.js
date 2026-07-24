@@ -21,7 +21,7 @@ function ConversationInfoView({ route, navigation }) {
   useEffect(() => {
     const fetchConversationDetails = async () => {
       const data = await getConversationDetails(conversationId);
-      setMembers(data.members || []);
+      setMembers(data.memberUsernames || []);
       setNewTitle(data.title || "");
     };
     fetchConversationDetails();

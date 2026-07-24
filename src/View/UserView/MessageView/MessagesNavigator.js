@@ -24,7 +24,7 @@ const NewChatButton = ({ navigation }) => (
   </TouchableOpacity>
 );
 
-function MessagesNavigator({ navigation }) {
+function MessagesNavigator() {
   const route = useRoute();
 
   const defaultOptions = {
@@ -48,10 +48,10 @@ function MessagesNavigator({ navigation }) {
         name="Messages"
         component={MessagesView}
         initialParams={route.params}
-        options={{
+        options={({ navigation: stackNavigation }) => ({
           headerLeft: () => null,
-          headerRight: () => <NewChatButton navigation={navigation} />,
-        }}
+          headerRight: () => <NewChatButton navigation={stackNavigation} />,
+        })}
       />
 
       <Stack.Screen

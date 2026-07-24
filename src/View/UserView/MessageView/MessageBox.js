@@ -1,8 +1,8 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-function MessageBox({ navigation, message, sender, incoming }) {
-  const displayName = incoming ? sender : "You";
+function MessageBox({ navigation, message, senderUsername, incoming }) {
+  const displayName = incoming ? senderUsername || "User" : "You";
 
   return (
     <View

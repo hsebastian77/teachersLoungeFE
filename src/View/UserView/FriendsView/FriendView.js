@@ -77,7 +77,11 @@ function FriendView({ navigation }) {
       <View style={App_StyleSheet.content}>
         <View style={styles.profileSection}>
           <Avatar.Image source={image} size={90} />
-          <Text style={styles.username}>{friend?.email}</Text>
+          <Text style={styles.username}>
+            {friend?.username ||
+              `${friend?.firstName || ""} ${friend?.lastName || ""}`.trim() ||
+              "User"}
+          </Text>
         </View>
         <View style={styles.buttonContainer}>
           <TouchableOpacity

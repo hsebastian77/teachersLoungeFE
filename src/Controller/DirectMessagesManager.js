@@ -101,7 +101,8 @@ const getMessages = async (conversationId) => {
         message.conversation_id,
         message.content,
         message.sender,
-        message.time
+        message.time,
+        message.sender_username || message.senderUsername || ""
       );
     });
   } catch (error) {

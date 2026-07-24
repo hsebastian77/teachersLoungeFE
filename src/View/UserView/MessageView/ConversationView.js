@@ -19,6 +19,7 @@ import { getConversationDetails, getMessages } from "../../../Controller/DirectM
 
 function ConversationView({ navigation }) {
   const route = useRoute();
+  const conversationId = route.params.conversationId;
   const [messages, setMessages] = useState([]);
   const [convoTitle, setConvoTitle] = useState(route.params.username);
   let settingIcon = require("../../../../assets/settings.png");
@@ -46,9 +47,22 @@ function ConversationView({ navigation }) {
     });
   }, [convoTitle, navigation, route.params]);
 
-  useFocusEffect(() => {
-    loadData(route.params.conversationId);
-  });
+  const loadData = React.useCallback(async () => {
+    try {
+      const data = await getMessages(conversationId);
+      const convoData = await getConversationDetails(conversationId);
+      setMessages([...data].reverse());
+      setConvoTitle(convoData.title);
+    } catch (error) {
+      console.log(error);
+    }
+  }, [conversationId]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   useEffect(() => {
     // Dynamically set the title when the convoTitle changes
@@ -56,18 +70,6 @@ function ConversationView({ navigation }) {
       title: convoTitle,
     });
   }, [convoTitle, navigation]);
-  
-  const loadData = async (conversationId) => {
-    try {
-      const data = await getMessages(conversationId);
-      const convoData = await getConversationDetails(conversationId);
-      data.reverse();
-      setMessages(data);
-      setConvoTitle(convoData.title);
-    } catch (error) {
-      console.log(error);
-    }
-  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -82,7 +84,7 @@ function ConversationView({ navigation }) {
             renderItem={({ item }) => (
               <MessageBox
                 navigation={navigation}
-                sender={item.sender}
+                senderUsername={item.senderUsername}
                 message={item.content}
                 incoming={
                   route.params.User.userUserName !== item.sender

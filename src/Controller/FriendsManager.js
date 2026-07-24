@@ -42,7 +42,8 @@ async function getUserInfo(userEmail) {
           data[0].firstname,
           data[0].lastname,
           schoolInfo,
-          data[0].role
+          data[0].role,
+          data[0].username || ""
         );
       }
       return friend;
@@ -159,7 +160,8 @@ async function getFriendsList(userEmail) {
             data[count].firstname,
             data[count].lastname,
             schoolInfo,
-            data[count].role
+            data[count].role,
+            data[count].username || ""
           )
         );
         count = count + 1;
